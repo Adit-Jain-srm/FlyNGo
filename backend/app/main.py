@@ -48,6 +48,16 @@ app.add_middleware(
 # Register custom exception handlers
 register_exception_handlers(app)
 
+# Include routers
+from backend.app.routers import bookings, catalog, changes, offers, requests, suppliers
+
+app.include_router(catalog.router)
+app.include_router(requests.router)
+app.include_router(suppliers.router)
+app.include_router(offers.router)
+app.include_router(bookings.router)
+app.include_router(changes.router)
+
 
 @app.get(
     "/api/health",

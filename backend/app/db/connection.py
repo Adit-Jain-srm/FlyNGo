@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import sqlite3
 
-from backend.app.config import DB_PATH
+from backend.app import config
 
 
 def get_connection(db_path: str | Path | None = None) -> sqlite3.Connection:
@@ -13,12 +13,12 @@ def get_connection(db_path: str | Path | None = None) -> sqlite3.Connection:
 
     Always enables foreign keys and sets row_factory to sqlite3.Row.
     """
-    path = str(db_path or DB_PATH)
+    path = str(db_path or config.DB_PATH)
     # Ensure parent directory exists for file-based DBs
     if path != ":memory:":
         Path(path).parent.mkdir(parents=True, exist_ok=True)
 
-    conn = sqlite3.connect(path, timeout=15.0)
+    conn = sqlite3.connect(path, timeout=15.0, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn

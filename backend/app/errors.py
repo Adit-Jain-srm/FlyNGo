@@ -39,13 +39,16 @@ class RuleViolationException(Exception):
         return result
 
 
+RuleRefusalException = RuleViolationException
+
+
 class ConflictException(RuleViolationException):
     """Raised on state conflicts (e.g. double booking, offer not open)."""
 
     def __init__(
         self,
-        rule: str,
         message: str,
+        rule: str = "CONFLICT",
         field: str | None = None,
         allowed: Any | None = None,
     ):
