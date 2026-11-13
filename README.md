@@ -1,7 +1,5 @@
 # FlyNGo — Airport Taxi → Ride Offers
 
-[![Ask DeepWiki](docs/deepwiki-badge.svg)](https://deepwiki.com/Adit-Jain-srm/FlyNGo)
-
 Live app: [https://flyngo.vercel.app](https://flyngo.vercel.app)
 
 A traveler posts a ride from their arrival flight to a hotel, with the price they will pay. Taxi suppliers who can actually do that ride assign a car and a price. The traveler books one offer, gets a 10-digit booking number, and can ask for a new flight or pickup time.
