@@ -12,7 +12,7 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen text-[var(--ink)] flex flex-col font-sans">
       {/* Top Navbar */}
       <header className="border-b border-slate-200/80 bg-white/95 backdrop-blur-md px-6 h-16 flex items-center justify-between sticky top-0 z-50 shadow-xs">
         <div className="flex items-center space-x-4">

@@ -18,6 +18,8 @@ export const PriceRangeBar: React.FC<PriceRangeBarProps> = ({
   const midpoint = Math.round((minPrice + maxPrice) / 2);
   const isTooLow = userPrice > 0 && userPrice < minPrice;
   const isValid = userPrice >= minPrice && userPrice <= maxPrice;
+  const span = Math.max(maxPrice - minPrice, 1);
+  const marker = Math.min(100, Math.max(0, ((userPrice - minPrice) / span) * 100));
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-5">
@@ -82,9 +84,17 @@ export const PriceRangeBar: React.FC<PriceRangeBarProps> = ({
           <span>Max: {formatINR(maxPrice)}</span>
         </div>
 
-        <div className="relative h-3 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200">
-          {/* Active safe zone */}
-          <div className="h-full rounded-full bg-gradient-to-r from-blue-400 via-emerald-400 to-indigo-400 opacity-90" />
+        <div className="relative h-3 w-full rounded-full bg-stone-200">
+          <div className="absolute inset-y-0 left-0 right-0 rounded-full bg-[var(--lane)] opacity-80" />
+          {userPrice > 0 && (
+            <div
+              className={`absolute top-1/2 h-5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full ${
+                isValid ? "bg-[var(--ink)]" : "bg-rose-600"
+              }`}
+              style={{ left: `${marker}%` }}
+              aria-hidden="true"
+            />
+          )}
         </div>
 
         {/* Quick select buttons */}
@@ -93,21 +103,21 @@ export const PriceRangeBar: React.FC<PriceRangeBarProps> = ({
           <button
             type="button"
             onClick={() => onChangePrice(minPrice)}
-            className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+            className="text-xs font-semibold min-h-11 px-3 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-800 transition-colors"
           >
             Min {formatINR(minPrice)}
           </button>
           <button
             type="button"
             onClick={() => onChangePrice(midpoint)}
-            className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-colors"
+            className="text-xs font-semibold min-h-11 px-3 rounded-lg bg-teal-50 hover:bg-teal-100 text-[var(--lane)] border border-teal-200 transition-colors"
           >
             Midpoint {formatINR(midpoint)}
           </button>
           <button
             type="button"
             onClick={() => onChangePrice(maxPrice)}
-            className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+            className="text-xs font-semibold min-h-11 px-3 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-800 transition-colors"
           >
             Max {formatINR(maxPrice)}
           </button>

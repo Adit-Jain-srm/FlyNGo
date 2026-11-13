@@ -2,13 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  Metaphor: a fare is a marked lane between a minimum and a maximum.
+  Hero: the lane on the price step, and the two doors on the home screen.
+  Playhead: none. This is a working app, not a scroll film.
+  Ceremony: booking keeps the number on screen. No leave wave.
+  Still: reduced motion drops travel and keeps color, type, and state.
+*/
 :root {
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --paper: #f3efe6;
+  --ink: #1c1917;
+  --lane: #0f6e6b;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #f8fafc;
-  color: #0f172a;
+  background-color: var(--paper);
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
