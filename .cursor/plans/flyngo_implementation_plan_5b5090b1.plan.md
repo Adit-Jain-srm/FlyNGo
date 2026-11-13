@@ -7,7 +7,7 @@ todos:
     status: pending
   - id: p1-foundation
     content: "P1: npm run setup/api/web/test (no concurrently); backend skeleton + CORS; schema/loader/seed; Vite+Tailwind+shadcn shell; role picker; VITE_API_URL; test_refdata.py"
-    status: pending
+    status: completed
   - id: p2-m1-request
     content: "P2 (M1): catalog/quote/car-types/requests (R1-R3); progressive request builder; test_rules.py + test_requests_api.py"
     status: pending
