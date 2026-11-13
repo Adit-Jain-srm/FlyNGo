@@ -1,5 +1,7 @@
 # FlyNGo — Airport Taxi → Ride Offers
 
+Live app: [https://flyngo.vercel.app](https://flyngo.vercel.app)
+
 A traveler posts a ride from their arrival flight to a hotel, with the price they will pay. Taxi suppliers who can actually do that ride assign a car and a price. The traveler books one offer, gets a 10-digit booking number, and can ask for a new flight or pickup time.
 
 There is no login. On the home screen, choose Traveler or a supplier company from the data.
@@ -38,15 +40,13 @@ npm test
 
 ## Deploy
 
-The hosted app is one Vercel project. The traveler site and the API share one domain. Local `npm run api` still uses `backend/flyngo.db`.
+The hosted app is [https://flyngo.vercel.app](https://flyngo.vercel.app). The traveler site and the API share that domain. Local `npm run api` still uses `backend/flyngo.db`.
 
-Hosted bookings go to Turso, which is SQLite reached from Vercel. Creating it needs a one-time terms acceptance in the browser, then:
+Hosted bookings go to Turso, which is SQLite reached from Vercel. The database is connected. To create it again:
 
 ```bash
 vercel integration add tursocloud/database --name flyngo-db --plan starter -m region=bom1
 ```
-
-Until that database is connected, the hosted API keeps its data only for the life of one running instance.
 
 ```bash
 vercel link --yes --project flyngo
