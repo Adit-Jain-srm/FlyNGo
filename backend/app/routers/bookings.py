@@ -10,7 +10,7 @@ from backend.app.schemas import (
     ChangeRequestCreate,
     ChangeRequestResponse,
 )
-from backend.app.services.booking_service import book_offer, get_booking
+from backend.app.services.booking_service import book_offer, get_booking, list_all_bookings
 from backend.app.services.change_service import (
     get_booking_changes,
     request_flight_change,
@@ -31,6 +31,18 @@ def post_book_offer(
 ) -> BookingResponse:
     """Atomically books the selected offer, marks competitor offers NOT_CHOSEN, generates 10-digit number."""
     return book_offer(conn, offer_id)
+
+
+@router.get(
+    "/bookings",
+    response_model=list[BookingResponse],
+    summary="List all confirmed bookings",
+)
+def list_bookings_endpoint(
+    conn: sqlite3.Connection = Depends(get_db),
+) -> list[BookingResponse]:
+    """Retrieve all active confirmed bookings across all travelers."""
+    return list_all_bookings(conn)
 
 
 @router.get(

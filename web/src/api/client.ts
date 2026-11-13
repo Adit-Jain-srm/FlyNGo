@@ -373,6 +373,10 @@ export async function bookOffer(offerId: number): Promise<Booking> {
   });
 }
 
+export async function fetchBookings(): Promise<Booking[]> {
+  return apiFetch<Booking[]>("/api/bookings");
+}
+
 export async function fetchBooking(bookingNumber: string): Promise<Booking> {
   return apiFetch<Booking>(`/api/bookings/${encodeURIComponent(bookingNumber)}`);
 }

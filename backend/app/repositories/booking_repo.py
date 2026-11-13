@@ -222,3 +222,33 @@ def get_bookings_for_supplier(conn: sqlite3.Connection, supplier_id: str) -> lis
         (supplier_id,),
     )
     return [dict(r) for r in cur.fetchall()]
+
+
+def get_all_bookings(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Retrieve all confirmed bookings across all suppliers/travelers."""
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT 
+            b.booking_number, b.request_id, b.offer_id, b.supplier_id, b.vehicle_id,
+            b.flight_id, b.pickup_local, b.busy_start, b.busy_end, b.price_inr, b.status,
+            b.created_at,
+            s.name AS supplier_name, s.rating AS supplier_rating,
+            v.type AS vehicle_type, v.seats AS vehicle_seats, v.large_bags AS vehicle_large_bags, v.small_bags AS vehicle_small_bags,
+            r.traveler_name, r.airport_code, r.city, r.area, r.passengers, r.large_bags, r.small_bags,
+            f.airline, f.flight_number, f.from_airport, f.arrival_local,
+            h.hotel_id, h.name AS hotel_name, h.city AS hotel_city, h.area AS hotel_area,
+            ro.drive_minutes, ro.distance_km
+        FROM bookings b
+        JOIN suppliers s ON b.supplier_id = s.supplier_id
+        JOIN vehicles v ON b.vehicle_id = v.vehicle_id
+        JOIN ride_requests r ON b.request_id = r.request_id
+        JOIN flights f ON b.flight_id = f.flight_id
+        JOIN hotels h ON r.hotel_id = h.hotel_id
+        JOIN routes ro ON ro.airport = r.airport_code AND ro.city = r.city AND ro.area = r.area
+        WHERE b.is_active = 1
+        ORDER BY b.created_at DESC
+        """
+    )
+    return [dict(r) for r in cur.fetchall()]
+

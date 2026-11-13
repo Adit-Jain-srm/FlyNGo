@@ -23,3 +23,9 @@ def get_booking(conn: sqlite3.Connection, booking_number: str) -> dict[str, Any]
 def get_supplier_bookings(conn: sqlite3.Connection, supplier_id: str) -> list[dict[str, Any]]:
     """Retrieve all confirmed bookings assigned to a supplier."""
     return booking_repo.get_bookings_for_supplier(conn, supplier_id)
+
+
+def list_all_bookings(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Retrieve all confirmed bookings across all travelers and suppliers."""
+    return booking_repo.get_all_bookings(conn)
+
