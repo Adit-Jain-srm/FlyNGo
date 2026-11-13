@@ -29,3 +29,6 @@ web/.env.local
 .vscode/
 *.swp
 *.swo
+
+# Local architecture notes (not part of the submission)
+docs/TRADEOFFS.md
