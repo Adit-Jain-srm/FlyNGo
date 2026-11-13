@@ -48,6 +48,7 @@ export const SupplierPortal: React.FC = () => {
   const [supplierCars, setSupplierCars] = useState<CarAdvisory[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [offerPrice, setOfferPrice] = useState<number>(0);
+  const [offerExpires, setOfferExpires] = useState<string>("");
   const [submittingOffer, setSubmittingOffer] = useState<boolean>(false);
   const [offerError, setOfferError] = useState<ApiRuleError | string | null>(null);
   const [offerSuccess, setOfferSuccess] = useState<string | null>(null);
@@ -103,6 +104,7 @@ export const SupplierPortal: React.FC = () => {
     setAssignModalRequest(req);
     setSelectedVehicleId(null);
     setOfferPrice(req.price_inr);
+    setOfferExpires("");
     setOfferError(null);
     setOfferSuccess(null);
 
@@ -126,23 +128,27 @@ export const SupplierPortal: React.FC = () => {
       return;
     }
 
+    const assignedVehicleId = selectedVehicleId;
     setSubmittingOffer(true);
     setOfferError(null);
+    setOfferSuccess(null);
 
     try {
       await createOffer(assignModalRequest.request_id, {
         supplier_id: selectedSupplierId,
-        vehicle_id: selectedVehicleId,
+        vehicle_id: assignedVehicleId,
         price_inr: offerPrice,
+        ...(offerExpires ? { expires_at: offerExpires } : {}),
       });
 
       emitSyncEvent("OFFER_CREATED");
-      setOfferSuccess(`Vehicle ${selectedVehicleId} successfully assigned for ${formatINR(offerPrice)}!`);
-      // Refresh company dashboard
-      setTimeout(() => {
-        loadCompanyData(selectedSupplierId, false);
-        setAssignModalRequest(null);
-      }, 1200);
+      setOfferSuccess(
+        `${assignedVehicleId} offered at ${formatINR(offerPrice)}. Assign another car, or close.`
+      );
+      setSupplierCars((cars) => cars.filter((car) => car.vehicle_id !== assignedVehicleId));
+      setSelectedVehicleId(null);
+      setOfferExpires("");
+      loadCompanyData(selectedSupplierId, false);
     } catch (err: any) {
       if (err instanceof ApiError && err.data) {
         setOfferError(err.data as ApiRuleError);
@@ -401,6 +407,7 @@ export const SupplierPortal: React.FC = () => {
                     </div>
                     <div className="text-xs text-slate-500 mt-1">
                       Assigned Vehicle: <strong>{o.vehicle_id}</strong> ({o.vehicle_type} • {o.vehicle_seats} seats)
+                      {o.expires_at ? ` • ends ${o.expires_at.replace("T", " ")}` : ""}
                     </div>
                   </div>
 
@@ -656,6 +663,21 @@ export const SupplierPortal: React.FC = () => {
                   className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-slate-300 font-bold text-base outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Offer ends (optional)
+              </label>
+              <input
+                type="datetime-local"
+                value={offerExpires}
+                onChange={(e) => setOfferExpires(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold"
+              />
+              <span className="text-[11px] text-slate-400 mt-1 block">
+                After this time the traveler cannot book this car. Leave blank to keep it open.
+              </span>
             </div>
 
             {/* Actions */}

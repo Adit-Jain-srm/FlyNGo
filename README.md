@@ -66,17 +66,19 @@ Phase 1 (must-haves) and the car-type step:
 | M4 | Book one offer or reject it. Booking returns a unique 10-digit number. Other offers on that request become “not chosen”. |
 | M5 | Open the summary with that number (flight, hotel, pickup, supplier, car, price). A wrong number says not found. It still works after the API process restarts. |
 | M6 | Booking checks the car’s busy window again, including rides in `booked_rides.json`. If the car was taken, the booking is refused. |
-| M7 | After booking, ask for a new flight (same airport) or a new pickup. The supplier accepts or rejects. A change that breaks the pickup rule or the car’s free time is rejected and the old booking stays. |
+| M7 | After booking, ask for a new flight or a new pickup. The supplier accepts or rejects. Acceptance requires the new pickup to be at least 60 minutes after the new landing and the same car to be free. A rejected change keeps the old booking. |
+| G1 | One supplier can assign several of its cars to the same request, each with its own price. The same car cannot be offered twice. |
 | G2 | Optional car type. Only types that can carry the party are offered. Suppliers can assign only that type. |
+| G4 | A supplier can set when an offer ends. After that time the traveler cannot book it. |
+| G5 | The traveler can sort offers by price and filter them by car type. |
 
 Seeded requests `REQ-0001`–`REQ-0003` load at startup. `REQ-0002` (Kansai → Namba, sedan only) is a built-in “no supplier can serve this” case.
 
 ## Known limitations
 
-- **Good-to-have not built:** offer expiry (G4) and sort/filter of offers (G5). A supplier can assign more than one of their cars to the same open request (different cars); there is no separate “fleet” screen for that.
+- **Not in the good-to-have list:** there is no separate fleet screen. Assigning another car stays on the same request panel.
 - **Not built:** shared rides (S1), login, payments, maps, notifications, live price changes, and any AI or LLM call.
-- **Pickup window** is landing + 60 minutes through landing + 24 hours. The problem only requires “at least 60 minutes”; the 24-hour cap is ours.
-- **A changed flight must land at the same airport.** The booked car and the route depend on that airport.
+- **Pickup** must be at least 60 minutes after landing. A later time is allowed.
 - **No race lock.** Two people confirming the same car at the same instant are not handled. The check runs when the booking is confirmed. The problem says that is enough.
 - **No accounts.** Request history in the traveler list is what the API returns. The booking number is the way back to a summary.
 - **Demo is local.** Nothing is deployed. Do not edit files under `data/`.

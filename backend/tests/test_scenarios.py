@@ -196,15 +196,20 @@ def test_happy_pickup_only_change(client: TestClient) -> None:
     assert summary["busy_end"] == "2027-04-10T15:00"
 
 
-def test_unhappy_change_to_a_different_airport(client: TestClient) -> None:
-    """R9: a new flight must land at the same airport."""
+def test_change_to_another_arrival_airport_is_allowed(client: TestClient) -> None:
+    """R9: a new flight is accepted when the pickup is valid and the same car is free."""
     booking = _book_sakura(client)
+    number = booking["booking_number"]
     response = client.post(
-        f"/api/bookings/{booking['booking_number']}/changes",
+        f"/api/bookings/{number}/changes",
         json={"new_flight_id": "FL-731"},
     )
-    assert response.status_code == 422
-    assert response.json()["rule"] == "R9"
+    assert response.status_code == 201, response.text
+    accepted = client.post(f"/api/changes/{response.json()['change_id']}/accept")
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["status"] == "ACCEPTED"
+    summary = client.get(f"/api/bookings/{number}").json()
+    assert summary["flight_id"] == "FL-731"
 
 
 def test_unhappy_empty_change_is_refused(client: TestClient) -> None:

@@ -204,6 +204,7 @@ class OfferCreatePayload(BaseModel):
     supplier_id: str
     vehicle_id: str
     price_inr: int = Field(gt=0, description="Supplier's offer price in INR")
+    expires_at: str | None = Field(default=None, description="Optional local time when this offer ends")
 
 
 class OfferResponse(BaseModel):
@@ -215,6 +216,7 @@ class OfferResponse(BaseModel):
     vehicle_id: str
     price_inr: int
     status: OfferStatusLiteral
+    expires_at: str | None = None
     created_at: str
     # Joined metadata
     supplier_name: str | None = None

@@ -157,6 +157,7 @@ CREATE TABLE IF NOT EXISTS offers (
   supplier_id TEXT NOT NULL REFERENCES suppliers(supplier_id),
   vehicle_id TEXT NOT NULL REFERENCES vehicles(vehicle_id),
   price_inr INTEGER NOT NULL CHECK (price_inr > 0),
+  expires_at TEXT,
   status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN','BOOKED','REJECTED','NOT_CHOSEN')),
   is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0,1)),
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,

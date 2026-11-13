@@ -2,6 +2,7 @@
 
 import secrets
 import sqlite3
+from datetime import datetime
 from typing import Any, Optional
 
 from backend.app.errors import ConflictException, NotFoundException
@@ -37,7 +38,7 @@ def create_booking_atomic(conn: sqlite3.Connection, offer_id: int) -> dict[str, 
     cur.execute(
         """
         SELECT 
-            o.offer_id, o.request_id, o.supplier_id, o.vehicle_id, o.price_inr, o.status,
+            o.offer_id, o.request_id, o.supplier_id, o.vehicle_id, o.price_inr, o.status, o.expires_at,
             r.status AS request_status, r.flight_id, r.hotel_id, r.pickup_local, r.airport_code,
             r.city, r.area, ro.drive_minutes
         FROM offers o
@@ -63,6 +64,14 @@ def create_booking_atomic(conn: sqlite3.Connection, offer_id: int) -> dict[str, 
 
     if offer_status != "OPEN":
         raise ConflictException(f"Offer #{offer_id} is not open (status: {offer_status}).")
+
+    expires_at = row["expires_at"]
+    if expires_at and expires_at[:16] <= datetime.now().strftime("%Y-%m-%dT%H:%M"):
+        raise ConflictException(
+            rule="G4",
+            field="expires_at",
+            message=f"This offer ended at {expires_at[:16]} and cannot be booked.",
+        )
 
     if request_status != "OPEN":
         raise ConflictException(f"Request {request_id} has already been booked or closed.")

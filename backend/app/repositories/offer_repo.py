@@ -10,15 +10,18 @@ def create_offer(
     supplier_id: str,
     vehicle_id: str,
     price_inr: int,
+    expires_at: str | None = None,
 ) -> int:
     """Insert a new vehicle offer into the offers table."""
     cur = conn.cursor()
     cur.execute(
         """
-        INSERT INTO offers (request_id, supplier_id, vehicle_id, price_inr, status, is_active, updated_at)
-        VALUES (?, ?, ?, ?, 'OPEN', 1, CURRENT_TIMESTAMP);
+        INSERT INTO offers (
+            request_id, supplier_id, vehicle_id, price_inr, expires_at, status, is_active, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, 'OPEN', 1, CURRENT_TIMESTAMP);
         """,
-        (request_id, supplier_id, vehicle_id, price_inr),
+        (request_id, supplier_id, vehicle_id, price_inr, expires_at),
     )
     return cur.lastrowid
 

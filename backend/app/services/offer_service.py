@@ -19,6 +19,20 @@ from backend.app.services.rules import (
 )
 
 
+def _normalize_expiry(value: str | None) -> str | None:
+    """Accept YYYY-MM-DDTHH:MM. Empty means the offer does not expire."""
+    if value is None or not value.strip():
+        return None
+    text = value.strip().replace(" ", "T")
+    if len(text) >= 16 and text[4] == "-" and text[7] == "-" and text[10] == "T" and text[13] == ":":
+        return text[:16]
+    raise RuleViolationException(
+        rule="G4",
+        field="expires_at",
+        message="Offer expiry must be a time like 2027-04-10T18:00.",
+    )
+
+
 def get_requests_for_supplier(
     conn: sqlite3.Connection,
     supplier_id: str,
@@ -271,6 +285,7 @@ def create_supplier_offer(
             supplier_id=payload.supplier_id,
             vehicle_id=payload.vehicle_id,
             price_inr=payload.price_inr,
+            expires_at=_normalize_expiry(payload.expires_at),
         )
         conn.commit()
     except Exception:

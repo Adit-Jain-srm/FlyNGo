@@ -4,7 +4,7 @@ import sqlite3
 from typing import Any, Optional
 from datetime import datetime, timedelta
 
-from backend.app.errors import ConflictException, NotFoundException, RuleRefusalException, RuleViolationException
+from backend.app.errors import ConflictException, NotFoundException, RuleViolationException
 from backend.app.services.rules import compute_ride_busy_interval, validate_r2_pickup
 
 
@@ -44,7 +44,6 @@ def create_change_request(
     if not b_row:
         raise NotFoundException(f"Booking {booking_number} not found.")
 
-    airport_code = b_row["airport_code"]
     supplier_id = b_row["supplier_id"]
     old_flight_id = b_row["old_flight_id"]
     old_pickup_local = b_row["old_pickup_local"]
@@ -81,13 +80,6 @@ def create_change_request(
     f_new = cur.fetchone()
     if not f_new:
         raise NotFoundException(f"New flight {new_flight_id} not found.")
-
-    if f_new["to_airport"] != airport_code:
-        raise RuleRefusalException(
-            rule="R9",
-            field="new_flight_id",
-            message=f"New flight must arrive at the same airport ({airport_code}), but {new_flight_id} arrives at {f_new['to_airport']}.",
-        )
 
     # 4. Default or validate new pickup time (Rule R2)
     new_arrival = f_new["arrival_local"]
@@ -212,12 +204,11 @@ def decide_change_request(
             c.status,
             b.request_id, b.vehicle_id,
             r.airport_code, r.city, r.area,
-            ro.drive_minutes,
+            f.to_airport AS new_airport,
             f.arrival_local AS new_arrival_local
         FROM change_requests c
         JOIN bookings b ON c.booking_number = b.booking_number
         JOIN ride_requests r ON b.request_id = r.request_id
-        JOIN routes ro ON ro.airport = r.airport_code AND ro.city = r.city AND ro.area = r.area
         JOIN flights f ON c.new_flight_id = f.flight_id
         WHERE c.change_id = ? AND c.is_active = 1
         """,
@@ -236,7 +227,9 @@ def decide_change_request(
     new_flight_id = row["new_flight_id"]
     new_pickup_local = row["new_pickup_local"]
     new_arrival = row["new_arrival_local"]
-    drive_minutes = row["drive_minutes"]
+    new_airport = row["new_airport"]
+    hotel_city = row["city"]
+    hotel_area = row["area"]
 
     if decision == "REJECTED":
         reason = reject_reason or "Change request rejected by supplier."
@@ -268,8 +261,33 @@ def decide_change_request(
         conn.commit()
         return get_change_request_by_id(conn, change_id)  # type: ignore
 
-    # 2. Re-check vehicle availability (there and back)
-    new_busy_start, new_busy_end = compute_ride_busy_interval(new_pickup_local, drive_minutes)
+    # 2. Busy window uses the route from the new arrival airport to the same hotel.
+    route = cur.execute(
+        """
+        SELECT drive_minutes FROM routes
+        WHERE airport = ? AND city = ? AND area = ? AND is_active = 1
+        """,
+        (new_airport, hotel_city, hotel_area),
+    ).fetchone()
+    if not route:
+        auto_reason = (
+            f"Auto-rejected: no route from {new_airport} to {hotel_city} / {hotel_area}. "
+            "The booking is unchanged."
+        )
+        cur.execute(
+            """
+            UPDATE change_requests
+            SET status = 'REJECTED', reason = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE change_id = ?
+            """,
+            (auto_reason, change_id),
+        )
+        conn.commit()
+        return get_change_request_by_id(conn, change_id)  # type: ignore
+
+    new_busy_start, new_busy_end = compute_ride_busy_interval(
+        new_pickup_local, route["drive_minutes"]
+    )
 
     cur.execute(
         """
@@ -319,10 +337,10 @@ def decide_change_request(
     cur.execute(
         """
         UPDATE ride_requests
-        SET flight_id = ?, pickup_local = ?, updated_at = CURRENT_TIMESTAMP
+        SET flight_id = ?, pickup_local = ?, airport_code = ?, updated_at = CURRENT_TIMESTAMP
         WHERE request_id = ?
         """,
-        (new_flight_id, new_pickup_local, request_id),
+        (new_flight_id, new_pickup_local, new_airport, request_id),
     )
 
     conn.commit()

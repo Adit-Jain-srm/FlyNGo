@@ -13,7 +13,7 @@ Airport Taxi → Ride Offers (Hackathon Problem 2).
 | Phase | Contents |
 |---|---|
 | **1: MVP (focus)** | M1–M7, all made strong, plus the optional car-type card (G2) showing only types that can fit the party |
-| **2** | G1 several cars per supplier per request, G4 offer expiry, G5 sort and filter |
+| **2** | G1, G2, G4, and G5 are implemented. G1 is several cars per supplier. G4 is an optional offer end time. G5 is sort by price and filter by car type. |
 | **3** | S2: our own ideas, decided after the MVP |
 
 ## 3. Assumptions
@@ -22,7 +22,7 @@ Airport Taxi → Ride Offers (Hackathon Problem 2).
 - **Busy times:** half-open. A ride that starts exactly when another ends does not overlap (data dictionary §5).
 - **Opening hours:** both ends are included, and a window can cross midnight (`05:00`–`01:00`).
 - **Pickup:** if none is given, the default is landing + 60 min. The latest allowed pickup is landing + 24 h.
-- **Flight change:** the new flight must land at the same airport.
+- **Flight change:** a new flight may land at another airport. It is accepted only when the new pickup is at least 60 minutes after that landing and the same car is free. If that airport has no route to the hotel, the change is rejected and the booking stays.
 - **Change checks:**
   - R2 is checked when the traveler sends the change.
   - R2 and the car being free are checked again when the supplier accepts.

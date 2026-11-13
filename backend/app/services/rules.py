@@ -65,10 +65,14 @@ def validate_r1_request(
 
 
 # -------------------------------------------------------------
-# R2: Pickup Window (Landing + 60 min to Landing + 24 hours)
+# R2: Pickup is at least 60 minutes after landing
 # -------------------------------------------------------------
 def compute_pickup_window(arrival_local: str) -> tuple[str, str, str]:
-    """Compute (default, earliest, latest) pickup times for an arrival flight."""
+    """Compute (default, earliest, latest shown) pickup times.
+
+    The problem only requires pickup >= landing + 60 minutes. latest is a
+    display hint for the quote, not a refusal limit.
+    """
     arrival_dt = datetime.fromisoformat(arrival_local)
     default_dt = arrival_dt + timedelta(minutes=60)
     earliest_dt = default_dt
@@ -82,15 +86,15 @@ def compute_pickup_window(arrival_local: str) -> tuple[str, str, str]:
 
 
 def validate_r2_pickup(pickup_local: str, arrival_local: str) -> None:
-    """Validate Rule R2: Pickup must be at least landing + 60 min and within 24h."""
-    default_p, earliest_p, latest_p = compute_pickup_window(arrival_local)
+    """Validate Rule R2: pickup is at least 60 minutes after landing."""
+    default_p, earliest_p, _latest_p = compute_pickup_window(arrival_local)
 
-    if pickup_local < earliest_p or pickup_local > latest_p:
+    if pickup_local < earliest_p:
         raise RuleViolationException(
             rule="R2",
             field="pickup_local",
-            message=f"Pickup time must be between {earliest_p} and {latest_p} (at least 60 minutes after landing and within 24 hours).",
-            allowed={"min": earliest_p, "max": latest_p, "default": default_p},
+            message=f"Pickup must be at least 60 minutes after landing ({earliest_p} or later).",
+            allowed={"min": earliest_p, "default": default_p},
         )
 
 

@@ -90,14 +90,9 @@ def test_r2_pickup_too_early() -> None:
     assert err.allowed["min"] == "2027-04-10T11:30"
 
 
-def test_r2_pickup_too_late() -> None:
-    """R2: Pickup later than landing + 24h raises R2 violation."""
-    landing = "2027-04-10T10:30"
-    with pytest.raises(RuleViolationException) as exc_info:
-        validate_r2_pickup("2027-04-11T12:00", landing)  # > 24h
-    err = exc_info.value
-    assert err.rule == "R2"
-    assert err.field == "pickup_local"
+def test_r2_pickup_days_later_is_allowed() -> None:
+    """R2: the traveler may choose any pickup at least 60 minutes after landing."""
+    validate_r2_pickup("2027-04-12T18:00", "2027-04-10T10:30")
 
 
 def test_r3_price_in_range() -> None:

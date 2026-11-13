@@ -46,6 +46,21 @@ export const RequestDetailView: React.FC<RequestDetailViewProps> = ({
   const [confirmedBookingNo, setConfirmedBookingNo] = useState<string | null>(null);
   const [bookingOfferId, setBookingOfferId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<ApiRuleError | string | null>(null);
+  const [priceSort, setPriceSort] = useState<"asc" | "desc">("asc");
+  const [typeFilter, setTypeFilter] = useState<string>("ALL");
+
+  const offerEnded = (offer: Offer) => {
+    if (!offer.expires_at) return false;
+    const now = new Date();
+    const pad = (value: number) => String(value).padStart(2, "0");
+    const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    return offer.expires_at.slice(0, 16) <= stamp;
+  };
+
+  const visibleOffers = offers
+    .filter((offer) => typeFilter === "ALL" || offer.vehicle_type === typeFilter)
+    .slice()
+    .sort((a, b) => (priceSort === "asc" ? a.price_inr - b.price_inr : b.price_inr - a.price_inr));
 
   const loadData = useCallback(async () => {
     try {
@@ -224,19 +239,43 @@ export const RequestDetailView: React.FC<RequestDetailViewProps> = ({
               Verified taxi suppliers in {request.airport_code} reviewing this request.
             </p>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={priceSort}
+              onChange={(event) => setPriceSort(event.target.value as "asc" | "desc")}
+              className="px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold"
+              aria-label="Sort offers by price"
+            >
+              <option value="asc">Price: low to high</option>
+              <option value="desc">Price: high to low</option>
+            </select>
+            <select
+              value={typeFilter}
+              onChange={(event) => setTypeFilter(event.target.value)}
+              className="px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold"
+              aria-label="Filter offers by car type"
+            >
+              <option value="ALL">All car types</option>
+              <option value="HATCHBACK">Hatchback</option>
+              <option value="SEDAN">Sedan</option>
+              <option value="SUV">SUV</option>
+              <option value="BUS">Bus</option>
+            </select>
+          </div>
         </div>
 
-        {offers.length > 0 ? (
+        {visibleOffers.length > 0 ? (
           <div className="grid grid-cols-1 gap-4">
-            {offers.map((offer) => {
-              const isOpen = offer.status === "OPEN";
+            {visibleOffers.map((offer) => {
+              const ended = offerEnded(offer);
+              const isOpen = offer.status === "OPEN" && !ended;
               return (
                 <div
                   key={offer.offer_id}
                   className={`p-5 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
                     offer.status === "BOOKED"
                       ? "border-emerald-300 bg-emerald-50/30"
-                      : offer.status === "REJECTED" || offer.status === "NOT_CHOSEN"
+                      : offer.status === "REJECTED" || offer.status === "NOT_CHOSEN" || ended
                       ? "border-slate-200 bg-slate-50/50 opacity-60"
                       : "border-slate-200 bg-white hover:border-indigo-300 shadow-sm"
                   }`}
@@ -255,19 +294,26 @@ export const RequestDetailView: React.FC<RequestDetailViewProps> = ({
                           </span>
                         )}
                         <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                          offer.status === "OPEN"
+                          ended
+                            ? "bg-rose-50 text-rose-700 border border-rose-200"
+                            : offer.status === "OPEN"
                             ? "bg-blue-50 text-blue-700 border border-blue-200"
                             : offer.status === "BOOKED"
                             ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                             : "bg-slate-100 text-slate-500"
                         }`}>
-                          {offer.status}
+                          {ended ? "ENDED" : offer.status}
                         </span>
                       </div>
 
                       <div className="text-xs text-slate-500 mt-1">
                         Vehicle: <strong>{offer.vehicle_id}</strong> ({offer.vehicle_type} • {offer.vehicle_seats} seats • {offer.vehicle_large_bags}L / {offer.vehicle_small_bags}S bags)
                       </div>
+                      {offer.expires_at && (
+                        <div className={`text-[11px] mt-1 font-semibold ${ended ? "text-rose-600" : "text-slate-500"}`}>
+                          {ended ? "Offer ended" : "Offer ends"} {offer.expires_at.replace("T", " ")}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -302,6 +348,8 @@ export const RequestDetailView: React.FC<RequestDetailViewProps> = ({
               );
             })}
           </div>
+        ) : offers.length > 0 ? (
+          <p className="text-xs text-slate-500">No offers match this car type. Choose “All car types”.</p>
         ) : funnel && !funnel.has_eligible_supplier ? (
           <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-6 space-y-4">
             <div className="flex items-center space-x-2.5 text-amber-900 font-bold text-sm">

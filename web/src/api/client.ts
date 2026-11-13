@@ -239,6 +239,7 @@ export interface Offer {
   vehicle_id: string;
   price_inr: number;
   status: "OPEN" | "BOOKED" | "REJECTED" | "NOT_CHOSEN";
+  expires_at?: string | null;
   created_at: string;
   supplier_name?: string;
   supplier_rating?: number;
@@ -290,7 +291,7 @@ export async function fetchSupplierChanges(supplierId: string): Promise<any[]> {
 
 export async function createOffer(
   requestId: string,
-  payload: { supplier_id: string; vehicle_id: string; price_inr: number }
+  payload: { supplier_id: string; vehicle_id: string; price_inr: number; expires_at?: string }
 ): Promise<Offer> {
   return apiFetch<Offer>(`/api/requests/${encodeURIComponent(requestId)}/offers`, {
     method: "POST",
