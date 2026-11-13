@@ -7,8 +7,7 @@
     },
     "api": {
       "root": ".",
-      "entrypoint": "backend.app.main:app",
-      "maxDuration": 60
+      "entrypoint": "backend.app.main:app"
     }
   },
   "rewrites": [
