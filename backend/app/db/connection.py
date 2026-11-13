@@ -2,18 +2,34 @@
 
 from collections.abc import Generator
 from contextlib import contextmanager
+import os
 from pathlib import Path
 import sqlite3
 
 from backend.app import config
+from backend.app.db.libsql_conn import NamedConnection
 
 
-def get_connection(db_path: str | Path | None = None) -> sqlite3.Connection:
-    """Create and configure a new SQLite connection.
+def get_connection(db_path: str | Path | None = None) -> sqlite3.Connection | NamedConnection:
+    """Open the database.
 
-    Always enables foreign keys and sets row_factory to sqlite3.Row.
+    Local runs use the SQLite file. When Turso credentials are set and the
+    caller did not ask for a specific file, bookings are stored in Turso so
+    they survive a serverless restart.
     """
-    path = str(db_path or config.DB_PATH)
+    turso_url = os.getenv("TURSO_DATABASE_URL")
+    turso_token = os.getenv("TURSO_AUTH_TOKEN")
+    if db_path is None and turso_url and turso_token:
+        import libsql
+
+        remote = libsql.connect(database=turso_url, auth_token=turso_token)
+        return NamedConnection(remote)
+
+    if db_path is None and os.getenv("VERCEL"):
+        # The deployment filesystem is read-only. /tmp lasts for this instance only.
+        path = "/tmp/flyngo.db"
+    else:
+        path = str(db_path or config.DB_PATH)
     # Ensure parent directory exists for file-based DBs
     if path != ":memory:":
         Path(path).parent.mkdir(parents=True, exist_ok=True)

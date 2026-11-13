@@ -20,6 +20,7 @@ backend/logs/
 .env
 .env.local
 .env.*.local
+.vercel
 
 # Node / Frontend
 node_modules/

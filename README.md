@@ -36,6 +36,29 @@ Tests:
 npm test
 ```
 
+## Deploy
+
+The hosted app is one Vercel project. The traveler site and the API share one domain. Local `npm run api` still uses `backend/flyngo.db`.
+
+Hosted bookings go to Turso, which is SQLite reached from Vercel. Creating it needs a one-time terms acceptance in the browser, then:
+
+```bash
+vercel integration add tursocloud/database --name flyngo-db --plan starter -m region=bom1
+```
+
+Until that database is connected, the hosted API keeps its data only for the life of one running instance.
+
+```bash
+vercel link --yes --project flyngo
+vercel --prod
+```
+
+Pushes to `main` deploy on their own after the GitHub repository is connected:
+
+```bash
+vercel git connect https://github.com/Adit-Jain-srm/FlyNGo
+```
+
 ## Architecture
 
 ```
