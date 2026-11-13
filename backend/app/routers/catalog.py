@@ -50,10 +50,10 @@ def get_flights(
 )
 def get_hotels(
     airport: str = Query(..., description="Arrival airport code (e.g. NRT)"),
-    q: str | None = Query(default=None, description="Optional search prefix for hotel name or area"),
+    q: str | None = Query(default=None, description="Optional search text for hotel name, area, or city"),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> list[HotelResponse]:
-    """Retrieve hotels reachable from the given airport, with optional prefix search."""
+    """Retrieve hotels reachable from the given airport. q matches name, area, or city."""
     rows = catalog_repo.get_hotels_by_airport(conn, airport.upper(), q)
     return [HotelResponse(**dict(r)) for r in rows]
 

@@ -54,6 +54,8 @@ export const RequestBuilder: React.FC<RequestBuilderProps> = ({ onRequestCreated
   const [airports, setAirports] = useState<Airport[]>([]);
   const [flights, setFlights] = useState<Flight[]>([]);
   const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [hotelsLoading, setHotelsLoading] = useState<boolean>(false);
+  const [hotelsError, setHotelsError] = useState<string | null>(null);
   const [quote, setQuote] = useState<RouteQuote | null>(null);
   const [suitableCarTypes, setSuitableCarTypes] = useState<CarTypeSuitability[]>([]);
 
@@ -80,11 +82,34 @@ export const RequestBuilder: React.FC<RequestBuilderProps> = ({ onRequestCreated
     }
   }, [selectedAirport, selectedDate]);
 
-  // Load hotels when airport changes
+  // Ask the API for hotels. A short pause keeps fast typing from showing an older result.
   useEffect(() => {
-    if (selectedAirport) {
-      fetchHotels(selectedAirport.code, hotelSearch).then(setHotels).catch(console.error);
+    if (!selectedAirport) {
+      return;
     }
+    let cancelled = false;
+    setHotelsLoading(true);
+    setHotelsError(null);
+    const handle = window.setTimeout(() => {
+      fetchHotels(selectedAirport.code, hotelSearch)
+        .then((rows) => {
+          if (!cancelled) {
+            setHotels(rows);
+            setHotelsLoading(false);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setHotels([]);
+            setHotelsLoading(false);
+            setHotelsError("Could not load hotels. Try the search again.");
+          }
+        });
+    }, 200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
   }, [selectedAirport, hotelSearch]);
 
   // Load quote when flight and hotel are selected
@@ -221,6 +246,7 @@ export const RequestBuilder: React.FC<RequestBuilderProps> = ({ onRequestCreated
                       setSelectedAirport(ap);
                       setSelectedFlight(null);
                       setSelectedHotel(null);
+                      setHotelSearch("");
                       setActiveStep(2);
                     }}
                     className={`p-4 rounded-xl border text-left transition-all ${
@@ -446,19 +472,49 @@ export const RequestBuilder: React.FC<RequestBuilderProps> = ({ onRequestCreated
         {activeStep === 3 && (
           <div className="p-6 space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Filter Hotels in cities served by {selectedAirport?.code}:
+              <label htmlFor="hotel-search" className="block text-xs font-bold text-slate-700 mb-1.5">
+                Search hotels served by {selectedAirport?.code}
               </label>
               <input
-                type="text"
-                placeholder="Search hotel name or area (e.g. Ueno, Ginza, Namba)..."
+                id="hotel-search"
+                type="search"
+                aria-label={`Search hotels served by ${selectedAirport?.code ?? "the airport"}`}
+                placeholder="Search name, area, or city (e.g. Ueno, Garden, Tokyo)"
                 value={hotelSearch}
                 onChange={(e) => setHotelSearch(e.target.value)}
+                autoComplete="off"
                 className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
             </div>
 
+            <p className="text-xs text-slate-500">
+              {hotelsLoading
+                ? "Searching hotels…"
+                : hotelSearch.trim()
+                  ? `${hotels.length} match${hotels.length === 1 ? "" : "es"}`
+                  : `${hotels.length} hotel${hotels.length === 1 ? "" : "s"}`}
+            </p>
+            {hotelsError && (
+              <p className="text-sm text-rose-700" role="alert">
+                {hotelsError}
+              </p>
+            )}
+            {selectedHotel &&
+              !hotels.some((htl) => htl.hotel_id === selectedHotel.hotel_id) &&
+              !hotelsLoading && (
+                <p className="text-xs text-slate-600">
+                  Selected: {selectedHotel.name}. This search is hiding it.
+                </p>
+              )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-1">
+              {!hotelsLoading && hotels.length === 0 && !hotelsError && (
+                <p className="text-sm text-slate-600 sm:col-span-2">
+                  {hotelSearch.trim()
+                    ? `No hotels match “${hotelSearch.trim()}” for ${selectedAirport?.code}.`
+                    : "No hotels are served from this airport."}
+                </p>
+              )}
               {hotels.map((htl) => {
                 const isSelected = selectedHotel?.hotel_id === htl.hotel_id;
                 return (

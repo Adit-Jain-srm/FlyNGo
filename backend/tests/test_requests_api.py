@@ -43,6 +43,26 @@ def test_catalog_hotels(client: TestClient) -> None:
     assert htl["area"] == "Ueno"
 
 
+def test_hotel_search_matches_name_city_and_rejects_other_airports(client: TestClient) -> None:
+    """Search matches a word inside the name or the city, and stays on that airport."""
+    by_name = client.get("/api/hotels?airport=NRT&q=garden")
+    assert by_name.status_code == 200
+    assert any(h["hotel_id"] == "HTL-TYO-004" for h in by_name.json())
+
+    by_city = client.get("/api/hotels?airport=NRT&q=tokyo")
+    assert by_city.status_code == 200
+    assert by_city.json()
+    assert all(h["city"] == "Tokyo" for h in by_city.json())
+
+    other_airport = client.get("/api/hotels?airport=DXB&q=Ueno")
+    assert other_airport.status_code == 200
+    assert other_airport.json() == []
+
+    wildcard = client.get("/api/hotels?airport=NRT&q=%")
+    assert wildcard.status_code == 200
+    assert wildcard.json() == []
+
+
 def test_quote_endpoint(client: TestClient) -> None:
     """GET /api/quote computes distance, drive time, and price range."""
     response = client.get("/api/quote?flight_id=FL-401&hotel_id=HTL-TYO-004")

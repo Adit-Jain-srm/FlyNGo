@@ -48,26 +48,37 @@ def get_airport_cities(conn: sqlite3.Connection, airport_code: str) -> list[str]
     return [row["city"] for row in rows]
 
 
+def _contains_pattern(text: str) -> str:
+    """Build a LIKE pattern that matches the text anywhere, with % and _ literal."""
+    escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
 def get_hotels_by_airport(
     conn: sqlite3.Connection,
     airport_code: str,
     query_str: str | None = None,
 ) -> list[sqlite3.Row]:
-    """Retrieve hotels located in cities served by the specified airport.
+    """Retrieve hotels in cities served by the airport.
 
-    Uses index ix_hotels_city_name with prefix filtering.
+    A search matches the hotel name, area, or city. The match can sit in the
+    middle of the word, so "Garden" finds "Ueno Garden Inn".
     """
     if query_str and query_str.strip():
-        pattern = f"%{query_str.strip()}%"
+        pattern = _contains_pattern(query_str.strip())
         sql = """
             SELECT DISTINCT h.hotel_id, h.name, h.city, h.area, h.stars, h.rating
             FROM airport_cities ac
             JOIN hotels h ON h.city = ac.city AND h.is_active = 1
             WHERE ac.airport_code = ? AND ac.is_active = 1
-              AND (h.name LIKE ? OR h.area LIKE ?)
+              AND (
+                h.name LIKE ? ESCAPE '\\'
+                OR h.area LIKE ? ESCAPE '\\'
+                OR h.city LIKE ? ESCAPE '\\'
+              )
             ORDER BY h.name;
         """
-        return conn.execute(sql, (airport_code, pattern, pattern)).fetchall()
+        return conn.execute(sql, (airport_code, pattern, pattern, pattern)).fetchall()
     else:
         sql = """
             SELECT DISTINCT h.hotel_id, h.name, h.city, h.area, h.stars, h.rating
