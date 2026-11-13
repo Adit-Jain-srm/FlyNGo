@@ -10,6 +10,7 @@
       "entrypoint": "backend.app.main:app"
     }
   },
+  "regions": ["bom1"],
   "rewrites": [
     {
       "source": "/api/(.*)",

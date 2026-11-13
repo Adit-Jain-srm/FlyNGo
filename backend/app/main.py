@@ -36,9 +36,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup lifecycle: initialize schema, load ref data, seed open requests."""
     conn = get_connection()
     try:
-        init_db(conn)
-        load_reference_data(conn)
-        seed_open_requests(conn)
+        # A remote database is one round trip per statement. Reloading the
+        # catalog on every cold start would hold the first request for minutes.
+        if not _catalog_loaded(conn):
+            init_db(conn)
+            load_reference_data(conn)
+            seed_open_requests(conn)
         counts = _active_counts(conn)
         logger.info(
             "startup complete %s",
@@ -91,6 +94,18 @@ app.include_router(changes.router)
 def get_health(conn: sqlite3.Connection = Depends(get_db)) -> HealthResponse:
     """Return health status and current active record counts for key tables."""
     return HealthResponse(status="healthy", counts=_active_counts(conn))
+
+
+def _catalog_loaded(conn: sqlite3.Connection) -> bool:
+    """True when the hosted catalog is already present, so startup can skip the reload."""
+    try:
+        row = conn.execute("SELECT COUNT(*) AS cnt FROM flights WHERE is_active = 1").fetchone()
+    except Exception:
+        return False
+    if row is None:
+        return False
+    count = row["cnt"] if not isinstance(row, tuple) else row[0]
+    return int(count) >= 100
 
 
 def _active_counts(conn: sqlite3.Connection) -> dict[str, int]:

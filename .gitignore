@@ -36,3 +36,4 @@ web/.env.local
 
 # Local architecture notes (not part of the submission)
 docs/TRADEOFFS.md
+.env*
