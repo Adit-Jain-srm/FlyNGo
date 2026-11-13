@@ -1,38 +1,93 @@
-# Hackathon data pack: Problem 2: Airport Taxi → Ride Offers
+# FlyNGo — Airport Taxi → Ride Offers
 
-Everything your team needs for this problem.
+A traveler posts a ride from their arrival flight to a hotel, with the price they will pay. Taxi suppliers who can actually do that ride assign a car and a price. The traveler books one offer, gets a 10-digit booking number, and can ask for a new flight or pickup time.
 
-## Start here
+There is no login. On the home screen, choose Traveler or a supplier company from the data.
 
-| Step | Read | Why |
-|---|---|---|
-| 1 | `problem-2-airport-taxi-offers.md` | The problem statement: what to build, the rules, and how we judge |
-| 2 | `DATA_DICTIONARY.md` | What each data file is, how the files link, every field, a worked example, and a data FAQ |
-| 3 | `data/` | The mock data (below) |
+## Start
 
-## The data in this pack
+Requires Python 3.13 and Node 20+.
 
-| File | One record is | Your app uses it to |
-|---|---|---|
-| `data/problem-2/taxi_companies.json` | One taxi supplier, with its cars | Show a dashboard per supplier (M2). Decide who sees a request (R4) and which car fits (R5). |
-| `data/problem-2/routes.json` | One drive from an airport to one hotel area | Suggest the price range (R3). Get the drive time for the busy time of a car (R6). |
-| `data/problem-2/booked_rides.json` | One ride booked before the event | Keep those cars busy at those times (R6) |
-| `data/problem-2/open_requests.json` | One ride request posted before the event | Show requests on supplier dashboards from the start |
-| `data/catalog/flights.json` | One flight on one date | The traveler picks the arrival flight. Its arrival time gives the earliest pickup (R2). |
-| `data/catalog/hotels.json` | One hotel | The traveler picks the hotel. Its city and area pick the route (R3) and the suppliers (R4). |
-| `data/catalog/airports.json` | One airport | Check that the arrival airport serves the hotel's city (R1) |
+```bash
+npm run setup
+```
 
-All data is synthetic. All times are local times. All prices are in INR. The data files are read-only: keep your own data in your own database.
+Then two terminals:
 
-## Rules (short version)
+```bash
+npm run api
+```
 
-1. Any language, framework, and database. AI tools to help you write code are allowed. **Your app must not call an AI or LLM model.**
-2. Build a **backend** and a **frontend** that work together. The frontend gets data from your backend, not from the files.
-3. Do not change the data files. Judges use the same files.
-4. Write feature code during the event. Push to Git every hour.
-5. Your app must start with 1–2 commands. Write them in your README.
-6. At code freeze, upload a zip to HackerEarth (no `node_modules`, no virtual environments, no API keys).
+```bash
+npm run web
+```
 
-## Questions
+| What | URL |
+|---|---|
+| App | http://localhost:5173 |
+| API | http://localhost:8000 |
+| Health | http://localhost:8000/api/health |
 
-Read the FAQ at the end of `DATA_DICTIONARY.md` first. Then ask at the help desk or in the event chat channel. We send every answer to all teams.
+`npm run setup` creates `.venv`, installs Python packages, and installs the web app. It is not a start command. The browser talks to the API at `http://localhost:8000` (CORS allows the Vite origin). Optional settings are in `.env.example` (`FLYNGO_DB`, `FLYNGO_DATA_DIR`, `CORS_ORIGINS`).
+
+Tests:
+
+```bash
+npm test
+```
+
+## Architecture
+
+```
+Browser :5173  →  web/src/api/client.ts
+                      ↓  HTTP
+FastAPI :8000  routers  →  services (rules R1–R9)  →  repositories (SQL)  →  SQLite
+                                                                              ↑
+                                                         data/*.json upserted on startup
+```
+
+- **Frontend** (`web/`): Vite, React, TypeScript. Traveler flow and supplier flow are separate feature folders. The page does not apply ride rules; it only shows what the API returns.
+- **Backend** (`backend/app/`): FastAPI. Routers handle HTTP. Services check the rules. Repositories run the SQL. Reference data (flights, hotels, airports, suppliers, cars, routes, booked rides) is loaded from the JSON files into SQLite on every startup. Those files are never written.
+- **Database**: `backend/flyngo.db`. Requests, offers, bookings, and change requests live here, so they survive a refresh and a backend restart. Rows are not deleted (`is_active` is set to 0 instead).
+- **Times** are local airport time, stored as `YYYY-MM-DDTHH:MM`. A car is busy from pickup until pickup + 2 × drive minutes. A window that starts exactly when another ends does not overlap.
+- **Errors** look like `{ "rule": "R3", "field": "price_inr", "message": "...", "allowed": { "min": 10200, "max": 16800 } }`.
+
+Full schema, queries, and indexes: [docs/DESIGN.md](docs/DESIGN.md).
+
+## What is finished
+
+Phase 1 (must-haves) and the car-type step:
+
+| ID | What you can do |
+|---|---|
+| M1 | Post a ride: airport, date and flight, hotel, passengers and bags, optional car type, price. The form shows the route’s min–max. A bad flight, pickup, or price is refused with the rule. |
+| M2 | Each supplier sees only open requests it can serve (airport, area, opening hours, a car that fits and is free). If nobody can, the traveler sees which check failed. |
+| M3 | Assign a car and a price. A car or price that breaks a rule is refused, and the message names the rule (R3–R7). |
+| M4 | Book one offer or reject it. Booking returns a unique 10-digit number. Other offers on that request become “not chosen”. |
+| M5 | Open the summary with that number (flight, hotel, pickup, supplier, car, price). A wrong number says not found. It still works after the API process restarts. |
+| M6 | Booking checks the car’s busy window again, including rides in `booked_rides.json`. If the car was taken, the booking is refused. |
+| M7 | After booking, ask for a new flight (same airport) or a new pickup. The supplier accepts or rejects. A change that breaks the pickup rule or the car’s free time is rejected and the old booking stays. |
+| G2 | Optional car type. Only types that can carry the party are offered. Suppliers can assign only that type. |
+
+Seeded requests `REQ-0001`–`REQ-0003` load at startup. `REQ-0002` (Kansai → Namba, sedan only) is a built-in “no supplier can serve this” case.
+
+## Known limitations
+
+- **Good-to-have not built:** offer expiry (G4) and sort/filter of offers (G5). A supplier can assign more than one of their cars to the same open request (different cars); there is no separate “fleet” screen for that.
+- **Not built:** shared rides (S1), login, payments, maps, notifications, live price changes, and any AI or LLM call.
+- **Pickup window** is landing + 60 minutes through landing + 24 hours. The problem only requires “at least 60 minutes”; the 24-hour cap is ours.
+- **A changed flight must land at the same airport.** The booked car and the route depend on that airport.
+- **No race lock.** Two people confirming the same car at the same instant are not handled. The check runs when the booking is confirmed. The problem says that is enough.
+- **No accounts.** Request history in the traveler list is what the API returns. The booking number is the way back to a summary.
+- **Demo is local.** Nothing is deployed. Do not edit files under `data/`.
+
+## Data pack
+
+| File | Use |
+|---|---|
+| `problem-2-airport-taxi-offers.md` | Problem statement, rules, how the work is judged |
+| `DATA_DICTIONARY.md` | Every field and how the files join |
+| `data/catalog/` | Flights, hotels, airports |
+| `data/problem-2/` | Suppliers, routes, booked rides, open requests |
+
+Field questions: the FAQ at the end of `DATA_DICTIONARY.md`, then the event help desk.
