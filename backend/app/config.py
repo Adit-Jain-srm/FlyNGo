@@ -15,7 +15,10 @@ DB_PATH = os.getenv("FLYNGO_DB", DEFAULT_DB_PATH)
 DATA_DIR = Path(os.getenv("FLYNGO_DATA_DIR", str(ROOT_DIR / "data")))
 
 # Log file (rotated). The directory is gitignored.
-DEFAULT_LOG_PATH = str(BACKEND_DIR / "logs" / "flyngo.log")
+# Vercel can write only under /tmp.
+DEFAULT_LOG_PATH = (
+    "/tmp/flyngo.log" if os.getenv("VERCEL") else str(BACKEND_DIR / "logs" / "flyngo.log")
+)
 LOG_PATH = os.getenv("FLYNGO_LOG_PATH", DEFAULT_LOG_PATH)
 
 # CORS origins

@@ -57,14 +57,19 @@ def configure_logging(log_path: str | Path | None = None) -> Logger:
     )
     stream = StreamHandler()
     stream.setFormatter(formatter)
-    rotating = RotatingFileHandler(
-        path,
-        maxBytes=_MAX_BYTES,
-        backupCount=_BACKUP_COUNT,
-        encoding="utf-8",
-    )
-    rotating.setFormatter(formatter)
     logger.addHandler(stream)
+    try:
+        rotating = RotatingFileHandler(
+            path,
+            maxBytes=_MAX_BYTES,
+            backupCount=_BACKUP_COUNT,
+            encoding="utf-8",
+        )
+    except OSError:
+        setattr(logger, _PATH_ATTR, path)
+        logger.warning("log file unavailable at %s", path)
+        return logger
+    rotating.setFormatter(formatter)
     logger.addHandler(rotating)
     setattr(logger, _PATH_ATTR, path)
     return logger
