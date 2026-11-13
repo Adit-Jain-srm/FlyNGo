@@ -4,6 +4,7 @@ import pytest
 from backend.app.errors import RuleViolationException
 from backend.app.services.rules import (
     compute_pickup_window,
+    compute_ride_busy_interval,
     validate_r1_request,
     validate_r2_pickup,
     validate_r3_price,
@@ -114,6 +115,43 @@ def test_r3_price_below_min() -> None:
     assert err.rule == "R3"
     assert err.field == "price_inr"
     assert err.allowed == {"min": 10200, "max": 16800}
+
+
+def test_busy_window_is_drive_there_and_back() -> None:
+    """R6: a car is busy for twice the one-way drive, and the end is exclusive."""
+    start, end = compute_ride_busy_interval("2027-04-10T11:30", 90)
+    assert start == "2027-04-10T11:30"
+    assert end == "2027-04-10T14:30"
+
+
+def test_r1_child_age_zero_is_allowed() -> None:
+    """R1: an infant aged 0 is a child and needs a seat."""
+    validate_r1_request(
+        arrival_airport="NRT",
+        serves_cities=["Tokyo"],
+        hotel_city="Tokyo",
+        adults=1,
+        child_ages=[0],
+    )
+
+
+def test_r1_negative_child_age() -> None:
+    """R1: a negative age is refused."""
+    with pytest.raises(RuleViolationException) as exc_info:
+        validate_r1_request(
+            arrival_airport="NRT",
+            serves_cities=["Tokyo"],
+            hotel_city="Tokyo",
+            adults=1,
+            child_ages=[-1],
+        )
+    assert exc_info.value.rule == "R1"
+    assert exc_info.value.field == "child_ages"
+
+
+def test_r2_pickup_exactly_60_minutes() -> None:
+    """R2: pickup at landing + 60 minutes is allowed."""
+    validate_r2_pickup("2027-04-10T11:30", "2027-04-10T10:30")
 
 
 def test_r3_price_above_max() -> None:

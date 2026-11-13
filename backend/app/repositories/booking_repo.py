@@ -3,9 +3,9 @@
 import secrets
 import sqlite3
 from typing import Any, Optional
-from datetime import datetime, timedelta
 
 from backend.app.errors import ConflictException, NotFoundException
+from backend.app.services.rules import compute_ride_busy_interval
 
 
 def generate_booking_number(conn: sqlite3.Connection) -> str:
@@ -24,13 +24,6 @@ def generate_booking_number(conn: sqlite3.Connection) -> str:
         if cur.fetchone() is None:
             return num
     raise RuntimeError("Failed to generate unique 10-digit booking number after 100 attempts")
-
-
-def _add_minutes_iso(iso_str: str, minutes: int) -> str:
-    """Add minutes to an ISO string formatted as YYYY-MM-DDTHH:MM."""
-    dt = datetime.fromisoformat(iso_str)
-    res = dt + timedelta(minutes=minutes)
-    return res.strftime("%Y-%m-%dT%H:%M")
 
 
 def create_booking_atomic(conn: sqlite3.Connection, offer_id: int) -> dict[str, Any]:
@@ -82,9 +75,8 @@ def create_booking_atomic(conn: sqlite3.Connection, offer_id: int) -> dict[str, 
     if cur.fetchone():
         raise ConflictException(f"Request {request_id} is already booked.")
 
-    # 3. Compute busy interval: busy_start = pickup_local, busy_end = pickup_local + drive_minutes
-    busy_start = pickup_local
-    busy_end = _add_minutes_iso(pickup_local, drive_minutes)
+    # Busy from pickup until the car is back at the airport: 2 x one-way drive.
+    busy_start, busy_end = compute_ride_busy_interval(pickup_local, drive_minutes)
 
     # 4. Re-verify vehicle availability (booked_rides and bookings)
     cur.execute(

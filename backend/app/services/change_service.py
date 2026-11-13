@@ -9,7 +9,7 @@ from backend.app.repositories import change_repo
 def request_flight_change(
     conn: sqlite3.Connection,
     booking_number: str,
-    new_flight_id: str,
+    new_flight_id: Optional[str],
     new_pickup_local: Optional[str] = None,
 ) -> dict[str, Any]:
     """Submit a new flight change request for an existing confirmed booking."""

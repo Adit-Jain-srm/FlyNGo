@@ -5,7 +5,7 @@ from typing import Any, Optional
 from datetime import datetime, timedelta
 
 from backend.app.errors import ConflictException, NotFoundException, RuleRefusalException, RuleViolationException
-from backend.app.services.rules import validate_r2_pickup
+from backend.app.services.rules import compute_ride_busy_interval, validate_r2_pickup
 
 
 def _add_minutes_iso(iso_str: str, minutes: int) -> str:
@@ -18,7 +18,7 @@ def _add_minutes_iso(iso_str: str, minutes: int) -> str:
 def create_change_request(
     conn: sqlite3.Connection,
     booking_number: str,
-    new_flight_id: str,
+    new_flight_id: Optional[str] = None,
     new_pickup_local: Optional[str] = None,
 ) -> dict[str, Any]:
     """Create a new flight change request for an existing confirmed booking.
@@ -48,6 +48,15 @@ def create_change_request(
     supplier_id = b_row["supplier_id"]
     old_flight_id = b_row["old_flight_id"]
     old_pickup_local = b_row["old_pickup_local"]
+
+    if not new_flight_id and not new_pickup_local:
+        raise RuleViolationException(
+            rule="R9",
+            field="new_pickup_local",
+            message="Provide a new flight or a new pickup time.",
+        )
+    if not new_flight_id:
+        new_flight_id = old_flight_id
 
     # 2. Check if a WAITING change request already exists
     cur.execute(
@@ -259,9 +268,8 @@ def decide_change_request(
         conn.commit()
         return get_change_request_by_id(conn, change_id)  # type: ignore
 
-    # 2. Re-check vehicle availability
-    new_busy_start = new_pickup_local
-    new_busy_end = _add_minutes_iso(new_pickup_local, drive_minutes)
+    # 2. Re-check vehicle availability (there and back)
+    new_busy_start, new_busy_end = compute_ride_busy_interval(new_pickup_local, drive_minutes)
 
     cur.execute(
         """

@@ -1,7 +1,7 @@
 """Core Pydantic data schemas and response envelopes for FlyNGo."""
 
 from typing import Any, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # -------------------------------------------------------------
@@ -273,8 +273,14 @@ class BookingResponse(BaseModel):
 class ChangeRequestCreate(BaseModel):
     """Payload to request a flight change on a confirmed booking."""
 
-    new_flight_id: str = Field(description="New flight ID landing at the same airport")
-    new_pickup_local: str | None = Field(default=None, description="Optional new pickup time")
+    new_flight_id: str | None = Field(default=None, description="New flight ID landing at the same airport")
+    new_pickup_local: str | None = Field(default=None, description="New pickup time, local to the arrival airport")
+
+    @model_validator(mode="after")
+    def require_a_change(self) -> "ChangeRequestCreate":
+        if not self.new_flight_id and not self.new_pickup_local:
+            raise ValueError("Provide a new flight or a new pickup time.")
+        return self
 
 
 class ChangeDecisionPayload(BaseModel):

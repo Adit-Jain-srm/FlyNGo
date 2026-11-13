@@ -89,16 +89,24 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
-        first_err = exc.errors()[0] if exc.errors() else {}
+        raw_errors = exc.errors()
+        first_err = raw_errors[0] if raw_errors else {}
         loc = first_err.get("loc", [])
         field_name = str(loc[-1]) if loc else None
         msg = first_err.get("msg", "Invalid input")
+        details = []
+        for err in raw_errors:
+            item = {key: value for key, value in err.items() if key != "ctx"}
+            ctx = err.get("ctx")
+            if isinstance(ctx, dict):
+                item["ctx"] = {key: str(value) for key, value in ctx.items()}
+            details.append(item)
         return JSONResponse(
             status_code=HTTP_422_UNPROCESSABLE,
             content={
                 "rule": "INPUT",
                 "field": field_name,
                 "message": msg,
-                "details": exc.errors(),
+                "details": details,
             },
         )
