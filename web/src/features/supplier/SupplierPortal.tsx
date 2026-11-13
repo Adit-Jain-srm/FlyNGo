@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Car,
   Building2,
@@ -29,6 +29,7 @@ import {
 } from "../../api/client";
 import { formatINR, formatAirportTime } from "../../lib/formatters";
 import { RuleErrorAlert } from "../../components/common/RuleErrorAlert";
+import { useLiveSync, emitSyncEvent } from "../../lib/sync";
 
 export const SupplierPortal: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -62,8 +63,8 @@ export const SupplierPortal: React.FC = () => {
   }, []);
 
   // Reload data whenever selected company or tab changes
-  const loadCompanyData = async (supId: string) => {
-    setLoading(true);
+  const loadCompanyData = useCallback(async (supId: string, showLoading: boolean = false) => {
+    if (showLoading) setLoading(true);
     try {
       const [reqsData, offersData, bookingsData, changesData] = await Promise.all([
         fetchSupplierRequests(supId),
@@ -78,15 +79,24 @@ export const SupplierPortal: React.FC = () => {
     } catch (err) {
       console.error("Error loading supplier data:", err);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (selectedSupplierId) {
-      loadCompanyData(selectedSupplierId);
+      loadCompanyData(selectedSupplierId, true);
     }
-  }, [selectedSupplierId]);
+  }, [selectedSupplierId, loadCompanyData]);
+
+  // Real-time synchronization across portals & tabs
+  const refreshCompanyData = useCallback(() => {
+    if (selectedSupplierId) {
+      loadCompanyData(selectedSupplierId, false);
+    }
+  }, [selectedSupplierId, loadCompanyData]);
+
+  useLiveSync(refreshCompanyData, 2500);
 
   // Open Assign Vehicle Modal
   const handleOpenAssignModal = async (req: RideRequest) => {
@@ -126,10 +136,11 @@ export const SupplierPortal: React.FC = () => {
         price_inr: offerPrice,
       });
 
+      emitSyncEvent("OFFER_CREATED");
       setOfferSuccess(`Vehicle ${selectedVehicleId} successfully assigned for ${formatINR(offerPrice)}!`);
       // Refresh company dashboard
       setTimeout(() => {
-        loadCompanyData(selectedSupplierId);
+        loadCompanyData(selectedSupplierId, false);
         setAssignModalRequest(null);
       }, 1200);
     } catch (err: any) {
@@ -146,7 +157,8 @@ export const SupplierPortal: React.FC = () => {
   const handleAcceptChange = async (changeId: number) => {
     try {
       await acceptChangeRequest(changeId);
-      loadCompanyData(selectedSupplierId);
+      emitSyncEvent("CHANGE_DECIDED");
+      loadCompanyData(selectedSupplierId, false);
     } catch (err) {
       console.error("Error accepting change:", err);
     }
@@ -155,7 +167,8 @@ export const SupplierPortal: React.FC = () => {
   const handleRejectChange = async (changeId: number) => {
     try {
       await rejectChangeRequest(changeId, "Driver unavailable at new pickup time.");
-      loadCompanyData(selectedSupplierId);
+      emitSyncEvent("CHANGE_DECIDED");
+      loadCompanyData(selectedSupplierId, false);
     } catch (err) {
       console.error("Error rejecting change:", err);
     }
