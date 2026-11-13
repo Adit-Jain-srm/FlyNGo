@@ -383,7 +383,7 @@ export async function fetchBooking(bookingNumber: string): Promise<Booking> {
 
 export async function requestFlightChange(
   bookingNumber: string,
-  payload: { new_flight_id: string; new_pickup_local?: string }
+  payload: { new_flight_id?: string; new_pickup_local?: string }
 ): Promise<ChangeRequest> {
   return apiFetch<ChangeRequest>(`/api/bookings/${encodeURIComponent(bookingNumber)}/changes`, {
     method: "POST",

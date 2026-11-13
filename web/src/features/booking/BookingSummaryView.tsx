@@ -26,6 +26,15 @@ import {
 import { formatINR, formatAirportTime } from "../../lib/formatters";
 import { RuleErrorAlert } from "../../components/common/RuleErrorAlert";
 
+function addMinutesLocal(localIso: string, minutes: number): string {
+  const [date, time] = localIso.slice(0, 16).split("T");
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  const utc = new Date(Date.UTC(year, month - 1, day, hour, minute + minutes));
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${utc.getUTCFullYear()}-${pad(utc.getUTCMonth() + 1)}-${pad(utc.getUTCDate())}T${pad(utc.getUTCHours())}:${pad(utc.getUTCMinutes())}`;
+}
+
 interface BookingSummaryViewProps {
   bookingNumber: string;
   onBackToSearch?: () => void;
@@ -78,13 +87,6 @@ export const BookingSummaryView: React.FC<BookingSummaryViewProps> = ({
       fetchFlights(booking.airport_code || "", changeDate)
         .then((data) => {
           setFlights(data);
-          if (data.length > 0 && !selectedFlightId) {
-            setSelectedFlightId(data[0].flight_id);
-            // Default landing + 60m
-            const arrDt = new Date(data[0].arrival_local);
-            arrDt.setMinutes(arrDt.getMinutes() + 60);
-            setNewPickupLocal(arrDt.toISOString().slice(0, 16));
-          }
         })
         .catch(console.error);
     }
@@ -92,11 +94,13 @@ export const BookingSummaryView: React.FC<BookingSummaryViewProps> = ({
 
   const handleFlightSelect = (fId: string) => {
     setSelectedFlightId(fId);
+    if (!fId) {
+      setNewPickupLocal(booking?.pickup_local?.slice(0, 16) ?? "");
+      return;
+    }
     const fl = flights.find((f) => f.flight_id === fId);
-    if (fl) {
-      const arrDt = new Date(fl.arrival_local);
-      arrDt.setMinutes(arrDt.getMinutes() + 60);
-      setNewPickupLocal(arrDt.toISOString().slice(0, 16));
+    if (fl?.arrival_local) {
+      setNewPickupLocal(addMinutesLocal(fl.arrival_local, 60));
     }
   };
 
@@ -106,15 +110,27 @@ export const BookingSummaryView: React.FC<BookingSummaryViewProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const openChangeModal = () => {
+    setSelectedFlightId("");
+    setNewPickupLocal(booking?.pickup_local?.slice(0, 16) ?? "");
+    setChangeError(null);
+    setShowChangeModal(true);
+  };
+
   const handleSubmitChange = async () => {
-    if (!selectedFlightId) return;
+    if (!booking) return;
+    const flightChanged = selectedFlightId !== "" && selectedFlightId !== booking.flight_id;
+    const currentPickup = booking.pickup_local.slice(0, 16);
+    const pickupChanged = newPickupLocal !== "" && newPickupLocal !== currentPickup;
+    if (!flightChanged && !pickupChanged) return;
+
     setSubmittingChange(true);
     setChangeError(null);
 
     try {
       await requestFlightChange(bookingNumber, {
-        new_flight_id: selectedFlightId,
-        new_pickup_local: newPickupLocal,
+        ...(flightChanged ? { new_flight_id: selectedFlightId } : {}),
+        ...(pickupChanged ? { new_pickup_local: newPickupLocal } : {}),
       });
       setShowChangeModal(false);
       loadBookingData();
@@ -294,7 +310,7 @@ export const BookingSummaryView: React.FC<BookingSummaryViewProps> = ({
 
           {/* Change Flight Button */}
           <button
-            onClick={() => setShowChangeModal(true)}
+            onClick={openChangeModal}
             disabled={hasWaitingChange}
             className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm transition-all disabled:opacity-50"
           >
@@ -390,6 +406,7 @@ export const BookingSummaryView: React.FC<BookingSummaryViewProps> = ({
                 onChange={(e) => handleFlightSelect(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs font-bold outline-none"
               >
+                <option value="">Keep current flight ({booking.flight_id})</option>
                 {flights.map((f) => (
                   <option key={f.flight_id} value={f.flight_id}>
                     {f.airline} ({f.flight_number || f.flight_id}) • From {f.from_airport} • Landing {f.arrival_local.slice(11, 16)}
@@ -425,7 +442,10 @@ export const BookingSummaryView: React.FC<BookingSummaryViewProps> = ({
               </button>
               <button
                 type="button"
-                disabled={submittingChange || !selectedFlightId}
+                disabled={
+                  submittingChange ||
+                  (selectedFlightId === "" && newPickupLocal.slice(0, 16) === booking.pickup_local.slice(0, 16))
+                }
                 onClick={handleSubmitChange}
                 className="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-md transition-all disabled:opacity-50"
               >
