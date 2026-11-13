@@ -4,31 +4,65 @@ import sqlite3
 from typing import Any
 
 
-def get_arrival_airports(conn: sqlite3.Connection) -> list[sqlite3.Row]:
-    """Retrieve the 5 destination airports receiving ride offers (NRT, HND, KIX, DXB, AUH)."""
-    query = """
+def get_arrival_airports(
+    conn: sqlite3.Connection,
+    query_str: str | None = None,
+) -> list[sqlite3.Row]:
+    """Retrieve the 5 destination airports. q matches code, name, city, or country."""
+    sql = """
         SELECT a.code, a.name, a.city, a.country, a.timezone
         FROM airports a
         WHERE a.is_active = 1
           AND a.code IN ('NRT', 'HND', 'KIX', 'DXB', 'AUH')
-        ORDER BY a.country, a.city;
     """
-    return conn.execute(query).fetchall()
+    params: list[str] = []
+    if query_str and query_str.strip():
+        pattern = _contains_pattern(query_str.strip())
+        sql += """
+          AND (
+            a.code LIKE ? ESCAPE '\\'
+            OR a.name LIKE ? ESCAPE '\\'
+            OR a.city LIKE ? ESCAPE '\\'
+            OR a.country LIKE ? ESCAPE '\\'
+          )
+        """
+        params.extend([pattern, pattern, pattern, pattern])
+    sql += " ORDER BY a.country, a.city;"
+    return conn.execute(sql, params).fetchall()
 
 
-def get_flights(conn: sqlite3.Connection, airport: str, date: str) -> list[sqlite3.Row]:
-    """Retrieve arrival flights for a given airport and arrival date.
+def get_flights(
+    conn: sqlite3.Connection,
+    airport: str,
+    date: str,
+    query_str: str | None = None,
+) -> list[sqlite3.Row]:
+    """Retrieve arrival flights for an airport and date.
 
-    Uses partial index: ix_flights_arrival(to_airport, arrival_date) WHERE is_active = 1.
+    q matches the flight id, airline, flight number, origin, or landing time.
+    The arrival date and airport still apply, so a search cannot pull another day.
     """
-    query = """
+    sql = """
         SELECT flight_id, airline, flight_number, from_airport, to_airport,
                departure_local, arrival_local, arrival_date, stops, duration_minutes, cabin
         FROM flights
         WHERE to_airport = ? AND arrival_date = ? AND is_active = 1
-        ORDER BY arrival_local;
     """
-    return conn.execute(query, (airport, date)).fetchall()
+    params: list[str] = [airport, date]
+    if query_str and query_str.strip():
+        pattern = _contains_pattern(query_str.strip())
+        sql += """
+          AND (
+            flight_id LIKE ? ESCAPE '\\'
+            OR airline LIKE ? ESCAPE '\\'
+            OR flight_number LIKE ? ESCAPE '\\'
+            OR from_airport LIKE ? ESCAPE '\\'
+            OR arrival_local LIKE ? ESCAPE '\\'
+          )
+        """
+        params.extend([pattern, pattern, pattern, pattern, pattern])
+    sql += " ORDER BY arrival_local;"
+    return conn.execute(sql, params).fetchall()
 
 
 def get_flight_by_id(conn: sqlite3.Connection, flight_id: str) -> sqlite3.Row | None:

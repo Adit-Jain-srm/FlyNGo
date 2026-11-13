@@ -22,9 +22,12 @@ router = APIRouter(prefix="/api", tags=["Catalog"])
     response_model=list[AirportResponse],
     summary="Get all arrival destination airports",
 )
-def get_airports(conn: sqlite3.Connection = Depends(get_db)) -> list[AirportResponse]:
-    """Retrieve the 5 destination airports receiving flights (NRT, HND, KIX, DXB, AUH)."""
-    rows = catalog_repo.get_arrival_airports(conn)
+def get_airports(
+    q: str | None = Query(default=None, description="Optional search text for code, name, city, or country"),
+    conn: sqlite3.Connection = Depends(get_db),
+) -> list[AirportResponse]:
+    """Retrieve the 5 destination airports. q matches code, name, city, or country."""
+    rows = catalog_repo.get_arrival_airports(conn, q)
     return [AirportResponse(**dict(r)) for r in rows]
 
 
@@ -36,10 +39,14 @@ def get_airports(conn: sqlite3.Connection = Depends(get_db)) -> list[AirportResp
 def get_flights(
     airport: str = Query(..., description="Arrival airport code (e.g. NRT)"),
     date: str = Query(..., description="Arrival date YYYY-MM-DD (e.g. 2027-04-10)"),
+    q: str | None = Query(
+        default=None,
+        description="Optional search text for airline, flight number, origin, or landing time",
+    ),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> list[FlightResponse]:
-    """Query flights landing at the specified airport on the specified date."""
-    rows = catalog_repo.get_flights(conn, airport.upper(), date)
+    """Query flights landing at the airport on the date. q narrows that list."""
+    rows = catalog_repo.get_flights(conn, airport.upper(), date, q)
     return [FlightResponse(**dict(r)) for r in rows]
 
 

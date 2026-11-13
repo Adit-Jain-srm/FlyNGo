@@ -117,12 +117,19 @@ export interface CarTypeSuitability {
   available_fleet_count: number;
 }
 
-export async function fetchAirports(): Promise<Airport[]> {
-  return apiFetch<Airport[]>("/api/airports");
+export async function fetchAirports(query?: string): Promise<Airport[]> {
+  const url = query && query.trim()
+    ? `/api/airports?q=${encodeURIComponent(query.trim())}`
+    : "/api/airports";
+  return apiFetch<Airport[]>(url);
 }
 
-export async function fetchFlights(airport: string, date: string): Promise<Flight[]> {
-  return apiFetch<Flight[]>(`/api/flights?airport=${encodeURIComponent(airport)}&date=${encodeURIComponent(date)}`);
+export async function fetchFlights(airport: string, date: string, query?: string): Promise<Flight[]> {
+  const params = new URLSearchParams({ airport, date });
+  if (query && query.trim()) {
+    params.set("q", query.trim());
+  }
+  return apiFetch<Flight[]>(`/api/flights?${params.toString()}`);
 }
 
 export async function fetchHotels(airport: string, query?: string): Promise<Hotel[]> {

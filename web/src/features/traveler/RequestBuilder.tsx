@@ -41,6 +41,8 @@ export const RequestBuilder: React.FC<RequestBuilderProps> = ({ onRequestCreated
   const [selectedDate, setSelectedDate] = useState<string>("2027-04-10");
   const [selectedFlight, setSelectedFlight] = useState<Flight | null>(null);
   const [pickupTime, setPickupTime] = useState<string>("");
+  const [airportSearch, setAirportSearch] = useState<string>("");
+  const [flightSearch, setFlightSearch] = useState<string>("");
   const [hotelSearch, setHotelSearch] = useState<string>("");
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
   const [adults, setAdults] = useState<number>(2);
@@ -52,6 +54,8 @@ export const RequestBuilder: React.FC<RequestBuilderProps> = ({ onRequestCreated
 
   // Catalog loaded states
   const [airports, setAirports] = useState<Airport[]>([]);
+  const [airportsLoading, setAirportsLoading] = useState<boolean>(true);
+  const [airportsError, setAirportsError] = useState<string | null>(null);
   const [flights, setFlights] = useState<Flight[]>([]);
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [hotelsLoading, setHotelsLoading] = useState<boolean>(false);
@@ -64,23 +68,62 @@ export const RequestBuilder: React.FC<RequestBuilderProps> = ({ onRequestCreated
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [ruleError, setRuleError] = useState<ApiRuleError | string | null>(null);
 
-  // Load airports on mount
+  // Load airports. Typing waits briefly so an older result cannot replace a newer one.
   useEffect(() => {
-    fetchAirports().then(setAirports).catch(console.error);
-  }, []);
-
-  // Load flights when airport or date changes
-  useEffect(() => {
-    if (selectedAirport && selectedDate) {
-      setLoading(true);
-      fetchFlights(selectedAirport.code, selectedDate)
-        .then((data) => {
-          setFlights(data);
-          setLoading(false);
+    let cancelled = false;
+    setAirportsLoading(true);
+    setAirportsError(null);
+    const delay = airportSearch.trim() ? 200 : 0;
+    const handle = window.setTimeout(() => {
+      fetchAirports(airportSearch)
+        .then((rows) => {
+          if (!cancelled) {
+            setAirports(rows);
+            setAirportsLoading(false);
+          }
         })
-        .catch(() => setLoading(false));
+        .catch(() => {
+          if (!cancelled) {
+            setAirports([]);
+            setAirportsLoading(false);
+            setAirportsError("Could not load airports. Try the search again.");
+          }
+        });
+    }, delay);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [airportSearch]);
+
+  // Load flights for the chosen airport and date, narrowed by the search text.
+  useEffect(() => {
+    if (!selectedAirport || !selectedDate) {
+      return;
     }
-  }, [selectedAirport, selectedDate]);
+    let cancelled = false;
+    setLoading(true);
+    const delay = flightSearch.trim() ? 200 : 0;
+    const handle = window.setTimeout(() => {
+      fetchFlights(selectedAirport.code, selectedDate, flightSearch)
+        .then((data) => {
+          if (!cancelled) {
+            setFlights(data);
+            setLoading(false);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setFlights([]);
+            setLoading(false);
+          }
+        });
+    }, delay);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [selectedAirport, selectedDate, flightSearch]);
 
   // Ask the API for hotels. A short pause keeps fast typing from showing an older result.
   useEffect(() => {
@@ -232,10 +275,45 @@ export const RequestBuilder: React.FC<RequestBuilderProps> = ({ onRequestCreated
 
         {activeStep === 1 && (
           <div className="p-6 space-y-4">
+            <div>
+              <label htmlFor="airport-search" className="block text-xs font-bold text-slate-700 mb-1.5">
+                Search arrival airports
+              </label>
+              <input
+                id="airport-search"
+                type="search"
+                placeholder="Name, code, or city (e.g. Zayed, AUH, Abu Dhabi)"
+                value={airportSearch}
+                onChange={(e) => setAirportSearch(e.target.value)}
+                autoComplete="off"
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              />
+            </div>
             <p className="text-xs text-slate-500">
-              Select one of the 5 supported international hub airports:
+              {airportsLoading
+                ? "Searching airports…"
+                : airportSearch.trim()
+                  ? `${airports.length} match${airports.length === 1 ? "" : "es"}`
+                  : `${airports.length} airports`}
             </p>
+            {airportsError && (
+              <p className="text-sm text-rose-700" role="alert">
+                {airportsError}
+              </p>
+            )}
+            {selectedAirport &&
+              !airports.some((ap) => ap.code === selectedAirport.code) &&
+              !airportsLoading && (
+                <p className="text-xs text-slate-600">
+                  Selected: {selectedAirport.name} ({selectedAirport.code}). This search is hiding it.
+                </p>
+              )}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {!airportsLoading && airports.length === 0 && airportSearch.trim() && (
+                <p className="text-sm text-slate-600 sm:col-span-2">
+                  No airports match “{airportSearch.trim()}”.
+                </p>
+              )}
               {airports.map((ap) => {
                 const isSelected = selectedAirport?.code === ap.code;
                 return (
@@ -246,6 +324,7 @@ export const RequestBuilder: React.FC<RequestBuilderProps> = ({ onRequestCreated
                       setSelectedAirport(ap);
                       setSelectedFlight(null);
                       setSelectedHotel(null);
+                      setFlightSearch("");
                       setHotelSearch("");
                       setActiveStep(2);
                     }}
@@ -335,17 +414,42 @@ export const RequestBuilder: React.FC<RequestBuilderProps> = ({ onRequestCreated
 
             {/* Flights List */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-2">
-                Available Inbound Flights to {selectedAirport?.code} on {selectedDate}:
+              <label htmlFor="flight-search" className="block text-xs font-bold text-slate-700 mb-1.5">
+                Search flights into {selectedAirport?.code} on {selectedDate}
               </label>
-              {loading ? (
-                <div className="text-xs text-slate-500 py-3">Loading flights...</div>
-              ) : flights.length === 0 ? (
-                <div className="text-xs text-amber-700 bg-amber-50 p-3 rounded-xl border border-amber-200">
-                  No scheduled arrival flights found for {selectedAirport?.code} on this date.
+              <input
+                id="flight-search"
+                type="search"
+                placeholder="Airline, number, origin, or landing time (e.g. AirVeda, 520, BLR, 10:30)"
+                value={flightSearch}
+                onChange={(e) => setFlightSearch(e.target.value)}
+                autoComplete="off"
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              />
+              <p className="text-xs text-slate-500 mt-2">
+                {loading
+                  ? "Searching flights…"
+                  : flightSearch.trim()
+                    ? `${flights.length} match${flights.length === 1 ? "" : "es"}`
+                    : `${flights.length} flight${flights.length === 1 ? "" : "s"}`}
+              </p>
+              {selectedFlight &&
+                !flights.some((fl) => fl.flight_id === selectedFlight.flight_id) &&
+                !loading && (
+                  <p className="text-xs text-slate-600 mt-2">
+                    Selected: {selectedFlight.airline} {selectedFlight.flight_number}. This search is hiding it.
+                  </p>
+                )}
+              {loading && flights.length === 0 ? (
+                <div className="text-xs text-slate-500 py-3">Searching flights…</div>
+              ) : !loading && flights.length === 0 ? (
+                <div className="text-xs text-amber-700 bg-amber-50 p-3 rounded-xl border border-amber-200 mt-3">
+                  {flightSearch.trim()
+                    ? `No flights match “${flightSearch.trim()}” into ${selectedAirport?.code} on this date.`
+                    : `No scheduled arrival flights found for ${selectedAirport?.code} on this date.`}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                   {flights.map((fl) => {
                     const isSelected = selectedFlight?.flight_id === fl.flight_id;
                     return (

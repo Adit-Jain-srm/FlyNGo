@@ -14,6 +14,21 @@ def test_catalog_airports(client: TestClient) -> None:
     assert codes == {"NRT", "HND", "KIX", "DXB", "AUH"}
 
 
+def test_airport_search_matches_name_code_and_city(client: TestClient) -> None:
+    """Search finds Zayed by name, code, or city, and a wildcard is not every airport."""
+    by_name = client.get("/api/airports?q=zayed")
+    assert by_name.status_code == 200
+    assert [airport["code"] for airport in by_name.json()] == ["AUH"]
+
+    by_code = client.get("/api/airports?q=auh")
+    assert [airport["code"] for airport in by_code.json()] == ["AUH"]
+
+    by_city = client.get("/api/airports?q=abu dhabi")
+    assert [airport["code"] for airport in by_city.json()] == ["AUH"]
+
+    assert client.get("/api/airports?q=%").json() == []
+
+
 def test_catalog_flights(client: TestClient) -> None:
     """GET /api/flights returns flights for airport and arrival date."""
     response = client.get("/api/flights?airport=NRT&date=2027-04-10")
@@ -27,6 +42,24 @@ def test_catalog_flights(client: TestClient) -> None:
     assert fl_401["from_airport"] == "BLR"
     assert fl_401["to_airport"] == "NRT"
     assert fl_401["arrival_local"] == "2027-04-10T10:30"
+
+
+def test_flight_search_stays_on_the_chosen_airport_and_date(client: TestClient) -> None:
+    """Search matches airline, number, or origin without leaving the selected day."""
+    by_airline = client.get("/api/flights?airport=NRT&date=2027-04-10&q=airveda")
+    assert by_airline.status_code == 200
+    assert any(flight["flight_id"] == "FL-401" for flight in by_airline.json())
+
+    by_number = client.get("/api/flights?airport=NRT&date=2027-04-10&q=520")
+    assert any(flight["flight_id"] == "FL-401" for flight in by_number.json())
+
+    by_origin = client.get("/api/flights?airport=NRT&date=2027-04-10&q=BLR")
+    assert by_origin.json()
+    assert all(flight["from_airport"] == "BLR" for flight in by_origin.json())
+
+    other_day = client.get("/api/flights?airport=NRT&date=2027-04-11&q=FL-401")
+    assert other_day.json() == []
+    assert client.get("/api/flights?airport=NRT&date=2027-04-10&q=%").json() == []
 
 
 def test_catalog_hotels(client: TestClient) -> None:
