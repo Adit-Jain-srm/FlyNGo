@@ -102,6 +102,10 @@ class NamedConnection:
         self._raw.rollback()
 
     def close(self) -> None:
+        try:
+            self._raw.rollback()
+        except Exception:
+            pass
         self._raw.close()
 
 

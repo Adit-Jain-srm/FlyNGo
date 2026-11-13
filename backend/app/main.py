@@ -36,12 +36,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup lifecycle: initialize schema, load ref data, seed open requests."""
     conn = get_connection()
     try:
-        # A remote database is one round trip per statement. Reloading the
-        # catalog on every cold start would hold the first request for minutes.
+        # Schema and the three seeded requests are small. The flight catalog
+        # is not: one remote statement per row would hold the first request.
+        init_db(conn)
         if not _catalog_loaded(conn):
-            init_db(conn)
             load_reference_data(conn)
-            seed_open_requests(conn)
+        seed_open_requests(conn)
         counts = _active_counts(conn)
         logger.info(
             "startup complete %s",

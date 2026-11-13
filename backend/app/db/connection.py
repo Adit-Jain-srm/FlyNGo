@@ -23,7 +23,9 @@ def get_connection(db_path: str | Path | None = None) -> sqlite3.Connection | Na
         import libsql
 
         remote = libsql.connect(database=turso_url, auth_token=turso_token)
-        return NamedConnection(remote)
+        connection = NamedConnection(remote)
+        connection.execute("PRAGMA foreign_keys = ON;")
+        return connection
 
     if db_path is None and os.getenv("VERCEL"):
         # The deployment filesystem is read-only. /tmp lasts for this instance only.

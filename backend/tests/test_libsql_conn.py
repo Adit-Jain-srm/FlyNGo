@@ -30,4 +30,8 @@ def test_named_connection_runs_schema_and_reads_by_column_name() -> None:
         ).fetchall()
     }
     assert {"flights", "hotels", "bookings", "offers", "change_requests"} <= tables
+    connection.execute("PRAGMA foreign_keys = ON;")
+    mode = connection.execute("PRAGMA foreign_keys").fetchone()
+    assert mode is not None
+    assert mode[0] == 1
     connection.close()
