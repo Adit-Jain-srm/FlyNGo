@@ -11,9 +11,18 @@ if (!fs.existsSync(webDir)) {
   process.exit(1);
 }
 
-const isWin = process.platform === "win32";
-const npmCmd = isWin ? "npm.cmd" : "npm";
-const child = spawn(npmCmd, ["run", "dev", "--prefix", "web"], { stdio: "inherit", cwd: rootDir });
+// Spawn Vite's JS entry with Node. Spawning npm.cmd on Windows fails with EINVAL
+// under Node 20+ unless shell is enabled.
+const viteBin = path.join(webDir, "node_modules", "vite", "bin", "vite.js");
+if (!fs.existsSync(viteBin)) {
+  console.error("Vite is not installed. Please run: npm run setup");
+  process.exit(1);
+}
+
+const child = spawn(process.execPath, [viteBin, "--port", "5173"], {
+  stdio: "inherit",
+  cwd: webDir,
+});
 
 child.on("exit", (code) => {
   process.exit(code ?? 0);
