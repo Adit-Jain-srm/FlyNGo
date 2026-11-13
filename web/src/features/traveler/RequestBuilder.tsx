@@ -25,6 +25,7 @@ import {
 import { formatINR } from "../../lib/formatters";
 import { PriceRangeBar } from "./PriceRangeBar";
 import { RuleErrorAlert } from "../../components/common/RuleErrorAlert";
+import { emitSyncEvent } from "../../lib/sync";
 
 interface RequestBuilderProps {
   onRequestCreated: (request: RideRequest) => void;
@@ -136,6 +137,7 @@ export const RequestBuilder: React.FC<RequestBuilderProps> = ({ onRequestCreated
         price_inr: priceInr,
       });
 
+      emitSyncEvent("REQUEST_CREATED");
       onRequestCreated(result);
     } catch (err: any) {
       if (err instanceof ApiError && err.data) {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   PlusCircle,
   ListFilter,
@@ -22,6 +22,7 @@ import {
   fetchBookings,
 } from "../api/client";
 import { formatINR, formatAirportTime } from "../lib/formatters";
+import { useLiveSync } from "../lib/sync";
 
 interface TravelerPageProps {
   onSwitchToSupplier?: () => void;
@@ -44,34 +45,42 @@ export const TravelerPage: React.FC<TravelerPageProps> = ({
   const [requestsList, setRequestsList] = useState<RideRequest[]>([]);
   const [loadingRequests, setLoadingRequests] = useState<boolean>(false);
 
-  const loadRequests = async () => {
-    setLoadingRequests(true);
+  const loadRequests = useCallback(async (showLoading: boolean = false) => {
+    if (showLoading) setLoadingRequests(true);
     try {
       const data = await fetchRequests();
       setRequestsList(data);
     } catch (err) {
       console.error("Error loading requests list:", err);
     } finally {
-      setLoadingRequests(false);
+      if (showLoading) setLoadingRequests(false);
     }
-  };
+  }, []);
 
-  const loadBookings = async () => {
-    setLoadingBookings(true);
+  const loadBookings = useCallback(async (showLoading: boolean = false) => {
+    if (showLoading) setLoadingBookings(true);
     try {
       const data = await fetchBookings();
       setBookingsList(data);
     } catch (err) {
       console.error("Error loading bookings list:", err);
     } finally {
-      setLoadingBookings(false);
+      if (showLoading) setLoadingBookings(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadRequests();
-    loadBookings();
-  }, []);
+    loadRequests(true);
+    loadBookings(true);
+  }, [loadRequests, loadBookings]);
+
+  // Real-time synchronization across portals & tabs
+  const refreshTravelerData = useCallback(() => {
+    loadRequests(false);
+    loadBookings(false);
+  }, [loadRequests, loadBookings]);
+
+  useLiveSync(refreshTravelerData, 2500);
 
   // Handle viewing a specific booking number
   if (bookingLookupNumber) {
@@ -312,7 +321,7 @@ export const TravelerPage: React.FC<TravelerPageProps> = ({
               )}
             </div>
             <button
-              onClick={loadBookings}
+              onClick={() => loadBookings(true)}
               disabled={loadingBookings}
               className="inline-flex items-center space-x-1 text-xs font-bold text-blue-600 hover:text-blue-800"
             >
@@ -452,7 +461,7 @@ export const TravelerPage: React.FC<TravelerPageProps> = ({
               </p>
             </div>
             <button
-              onClick={loadRequests}
+              onClick={() => loadRequests(true)}
               disabled={loadingRequests}
               className="inline-flex items-center space-x-1 text-xs font-bold text-blue-600 hover:text-blue-800"
             >

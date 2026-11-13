@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   CheckCircle2,
   Copy,
@@ -25,6 +25,7 @@ import {
 } from "../../api/client";
 import { formatINR, formatAirportTime } from "../../lib/formatters";
 import { RuleErrorAlert } from "../../components/common/RuleErrorAlert";
+import { useLiveSync, emitSyncEvent } from "../../lib/sync";
 
 function addMinutesLocal(localIso: string, minutes: number): string {
   const [date, time] = localIso.slice(0, 16).split("T");
@@ -58,9 +59,9 @@ export const BookingSummaryView: React.FC<BookingSummaryViewProps> = ({
   const [submittingChange, setSubmittingChange] = useState<boolean>(false);
   const [changeError, setChangeError] = useState<ApiRuleError | string | null>(null);
 
-  const loadBookingData = async () => {
+  const loadBookingData = useCallback(async (showLoading: boolean = false) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const [bData, cData] = await Promise.all([
         fetchBooking(bookingNumber),
         fetchBookingChanges(bookingNumber),
@@ -73,13 +74,20 @@ export const BookingSummaryView: React.FC<BookingSummaryViewProps> = ({
     } catch (err) {
       console.error("Error loading booking:", err);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
-  };
+  }, [bookingNumber]);
 
   useEffect(() => {
-    loadBookingData();
-  }, [bookingNumber]);
+    loadBookingData(true);
+  }, [loadBookingData]);
+
+  // Real-time synchronization: updates instantly when supplier accepts/rejects flight changes
+  const refreshBookingData = useCallback(() => {
+    loadBookingData(false);
+  }, [loadBookingData]);
+
+  useLiveSync(refreshBookingData, 2500);
 
   // Load flights for change modal when date changes
   useEffect(() => {
@@ -132,8 +140,9 @@ export const BookingSummaryView: React.FC<BookingSummaryViewProps> = ({
         ...(flightChanged ? { new_flight_id: selectedFlightId } : {}),
         ...(pickupChanged ? { new_pickup_local: newPickupLocal } : {}),
       });
+      emitSyncEvent("CHANGE_REQUESTED");
       setShowChangeModal(false);
-      loadBookingData();
+      loadBookingData(false);
     } catch (err: any) {
       if (err instanceof ApiError && err.data) {
         setChangeError(err.data as ApiRuleError);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Plane,
   Clock,
@@ -26,6 +26,7 @@ import {
 import { formatINR, formatAirportTime } from "../../lib/formatters";
 import { RuleErrorAlert } from "../../components/common/RuleErrorAlert";
 import { BookingSummaryView } from "../booking/BookingSummaryView";
+import { useLiveSync, emitSyncEvent } from "../../lib/sync";
 
 interface RequestDetailViewProps {
   request: RideRequest;
@@ -46,7 +47,7 @@ export const RequestDetailView: React.FC<RequestDetailViewProps> = ({
   const [bookingOfferId, setBookingOfferId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<ApiRuleError | string | null>(null);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setRefreshing(true);
       const [reqData, offersData] = await Promise.all([
@@ -61,17 +62,21 @@ export const RequestDetailView: React.FC<RequestDetailViewProps> = ({
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [request.request_id]);
 
   useEffect(() => {
     loadData();
-  }, [request.request_id]);
+  }, [loadData]);
+
+  // Real-time synchronization: updates instantly when supplier posts offers
+  useLiveSync(loadData, 2500);
 
   const handleBook = async (offerId: number) => {
     setBookingOfferId(offerId);
     setActionError(null);
     try {
       const b = await bookOffer(offerId);
+      emitSyncEvent("BOOKING_CREATED");
       setConfirmedBookingNo(b.booking_number);
     } catch (err: any) {
       if (err instanceof ApiError && err.data) {
@@ -87,6 +92,7 @@ export const RequestDetailView: React.FC<RequestDetailViewProps> = ({
   const handleReject = async (offerId: number) => {
     try {
       await rejectOffer(offerId);
+      emitSyncEvent("OFFER_REJECTED");
       loadData();
     } catch (err) {
       console.error("Error rejecting offer:", err);
