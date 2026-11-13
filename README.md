@@ -1,6 +1,6 @@
 # FlyNGo — Airport Taxi → Ride Offers
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Adit-Jain-srm/FlyNGo)
+[![Ask DeepWiki](docs/deepwiki-badge.svg)](https://deepwiki.com/Adit-Jain-srm/FlyNGo)
 
 Live app: [https://flyngo.vercel.app](https://flyngo.vercel.app)
 
