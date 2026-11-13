@@ -28,7 +28,7 @@ npm run web
 | API | http://localhost:8000 |
 | Health | http://localhost:8000/api/health |
 
-`npm run setup` creates `.venv`, installs Python packages, and installs the web app. It is not a start command. The browser talks to the API at `http://localhost:8000` (CORS allows the Vite origin). Optional settings are in `.env.example` (`FLYNGO_DB`, `FLYNGO_DATA_DIR`, `CORS_ORIGINS`).
+`npm run setup` creates `.venv`, installs Python packages, and installs the web app. It is not a start command. The browser talks to the API at `http://localhost:8000` (CORS allows the Vite origin). Optional settings are in `.env.example` (`FLYNGO_DB`, `FLYNGO_DATA_DIR`, `FLYNGO_LOG_PATH`, `CORS_ORIGINS`).
 
 Tests:
 
@@ -51,6 +51,7 @@ FastAPI :8000  routers  →  services (rules R1–R9)  →  repositories (SQL)  
 - **Database**: `backend/flyngo.db`. Requests, offers, bookings, and change requests live here, so they survive a refresh and a backend restart. Rows are not deleted (`is_active` is set to 0 instead).
 - **Times** are local airport time, stored as `YYYY-MM-DDTHH:MM`. A car is busy from pickup until pickup + 2 × drive minutes. A window that starts exactly when another ends does not overlap.
 - **Errors** look like `{ "rule": "R3", "field": "price_inr", "message": "...", "allowed": { "min": 10200, "max": 16800 } }`.
+- **Logs** use one Python logger. The same lines go to the API terminal and to `backend/logs/flyngo.log` (rotates at 1 MB, three backups). That folder is not committed. Startup, a posted request, an assigned car, a booking, and a change are `INFO`. A rule refusal is `WARNING`. An unexpected failure is `ERROR`.
 
 Full schema, queries, and indexes: [docs/DESIGN.md](docs/DESIGN.md).
 

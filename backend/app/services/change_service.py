@@ -3,6 +3,7 @@
 import sqlite3
 from typing import Any, Optional
 
+from backend.app.log import get_logger
 from backend.app.repositories import change_repo
 
 
@@ -13,7 +14,15 @@ def request_flight_change(
     new_pickup_local: Optional[str] = None,
 ) -> dict[str, Any]:
     """Submit a new flight change request for an existing confirmed booking."""
-    return change_repo.create_change_request(conn, booking_number, new_flight_id, new_pickup_local)
+    created = change_repo.create_change_request(conn, booking_number, new_flight_id, new_pickup_local)
+    get_logger().info(
+        "change requested id=%s booking=%s flight=%s pickup=%s",
+        created["change_id"],
+        created["booking_number"],
+        created["new_flight_id"],
+        created["new_pickup_local"],
+    )
+    return created
 
 
 def get_booking_changes(conn: sqlite3.Connection, booking_number: str) -> list[dict[str, Any]]:
@@ -33,4 +42,22 @@ def process_change_decision(
     reject_reason: Optional[str] = None,
 ) -> dict[str, Any]:
     """Process supplier acceptance or rejection of a flight change request."""
-    return change_repo.decide_change_request(conn, change_id, decision, reject_reason)
+    decided = change_repo.decide_change_request(conn, change_id, decision, reject_reason)
+    outcome = decided.get("status")
+    if outcome == "ACCEPTED":
+        get_logger().info(
+            "change accepted id=%s booking=%s flight=%s pickup=%s",
+            decided["change_id"],
+            decided["booking_number"],
+            decided["new_flight_id"],
+            decided["new_pickup_local"],
+        )
+    else:
+        get_logger().info(
+            "change rejected id=%s booking=%s status=%s reason=%s",
+            decided["change_id"],
+            decided["booking_number"],
+            outcome,
+            decided.get("reason") or "-",
+        )
+    return decided

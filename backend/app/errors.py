@@ -4,6 +4,11 @@ from typing import Any
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.requests import ClientDisconnect
+
+from backend.app.log import get_logger
+
+logger = get_logger()
 
 
 HTTP_422_UNPROCESSABLE = getattr(status, "HTTP_422_UNPROCESSABLE_CONTENT", 422)
@@ -75,6 +80,13 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RuleViolationException)
     async def rule_violation_handler(_: Request, exc: RuleViolationException) -> JSONResponse:
+        logger.warning(
+            "rule refused rule=%s status=%s field=%s message=%s",
+            exc.rule,
+            exc.status_code,
+            exc.field or "-",
+            exc.message,
+        )
         return JSONResponse(
             status_code=exc.status_code,
             content=exc.to_dict(),
@@ -82,6 +94,7 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(NotFoundException)
     async def not_found_handler(_: Request, exc: NotFoundException) -> JSONResponse:
+        logger.info("not found message=%s", exc.message)
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
             content={"message": exc.message},
@@ -94,6 +107,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         loc = first_err.get("loc", [])
         field_name = str(loc[-1]) if loc else None
         msg = first_err.get("msg", "Invalid input")
+        logger.warning("invalid input field=%s message=%s", field_name or "-", msg)
         details = []
         for err in raw_errors:
             item = {key: value for key, value in err.items() if key != "ctx"}
@@ -109,4 +123,20 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "message": msg,
                 "details": details,
             },
+        )
+
+    @app.exception_handler(Exception)
+    async def unexpected_handler(request: Request, exc: Exception) -> JSONResponse:
+        if isinstance(exc, ClientDisconnect):
+            raise exc
+        logger.error(
+            "unexpected failure %s %s %s",
+            request.method,
+            request.url.path,
+            type(exc).__name__,
+            exc_info=exc,
+        )
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"message": "Unexpected server error."},
         )

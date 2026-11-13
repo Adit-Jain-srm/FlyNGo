@@ -14,6 +14,10 @@ DB_PATH = os.getenv("FLYNGO_DB", DEFAULT_DB_PATH)
 # Data directory containing JSON catalogs and problem data
 DATA_DIR = Path(os.getenv("FLYNGO_DATA_DIR", str(ROOT_DIR / "data")))
 
+# Log file (rotated). The directory is gitignored.
+DEFAULT_LOG_PATH = str(BACKEND_DIR / "logs" / "flyngo.log")
+LOG_PATH = os.getenv("FLYNGO_LOG_PATH", DEFAULT_LOG_PATH)
+
 # CORS origins
 CORS_ORIGINS = [
     origin.strip()

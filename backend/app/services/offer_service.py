@@ -4,6 +4,7 @@ import sqlite3
 from typing import Any
 
 from backend.app.errors import ConflictException, NotFoundException, RuleViolationException
+from backend.app.log import get_logger
 from backend.app.repositories import catalog_repo, eligibility_repo, offer_repo, request_repo, supplier_repo
 from backend.app.schemas import (
     CarAdvisoryResponse,
@@ -296,4 +297,13 @@ def create_supplier_offer(
     if not saved:
         raise NotFoundException("Offer created could not be retrieved.")
 
-    return OfferResponse(**saved)
+    created = OfferResponse(**saved)
+    get_logger().info(
+        "offer assigned id=%s request=%s supplier=%s vehicle=%s price=%s",
+        created.offer_id,
+        created.request_id,
+        created.supplier_id,
+        created.vehicle_id,
+        created.price_inr,
+    )
+    return created

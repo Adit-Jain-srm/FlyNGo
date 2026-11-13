@@ -4,6 +4,7 @@ import sqlite3
 
 from backend.app.db.refdata_loader import normalize_datetime
 from backend.app.errors import NotFoundException, RuleViolationException
+from backend.app.log import get_logger
 from backend.app.repositories import catalog_repo, request_repo
 from backend.app.schemas import RideRequestCreate, RideRequestResponse
 from backend.app.services.rules import (
@@ -95,7 +96,15 @@ def create_new_request(
     if not saved:
         raise NotFoundException(f"Created request {request_id} could not be retrieved.")
 
-    return RideRequestResponse(**saved)
+    created = RideRequestResponse(**saved)
+    get_logger().info(
+        "request posted id=%s flight=%s hotel=%s price=%s",
+        created.request_id,
+        created.flight_id,
+        created.hotel_id,
+        created.price_inr,
+    )
+    return created
 
 
 def get_request_details(

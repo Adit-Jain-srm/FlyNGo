@@ -13,7 +13,22 @@ from backend.app.db.init import init_db
 from backend.app.db.refdata_loader import load_reference_data
 from backend.app.db.seed import seed_open_requests
 from backend.app.errors import register_exception_handlers
+from backend.app.log import configure_logging, get_logger
 from backend.app.schemas import HealthResponse
+
+configure_logging()
+logger = get_logger()
+
+_STARTUP_TABLES = (
+    "airports",
+    "flights",
+    "hotels",
+    "routes",
+    "suppliers",
+    "vehicles",
+    "booked_rides",
+    "ride_requests",
+)
 
 
 @asynccontextmanager
@@ -24,6 +39,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         init_db(conn)
         load_reference_data(conn)
         seed_open_requests(conn)
+        counts = _active_counts(conn)
+        logger.info(
+            "startup complete %s",
+            " ".join(f"{name}={counts[name]}" for name in _STARTUP_TABLES),
+        )
+    except Exception:
+        logger.exception("startup failed")
+        raise
     finally:
         conn.close()
     yield
@@ -67,20 +90,14 @@ app.include_router(changes.router)
 )
 def get_health(conn: sqlite3.Connection = Depends(get_db)) -> HealthResponse:
     """Return health status and current active record counts for key tables."""
-    tables = [
-        "airports",
-        "flights",
-        "hotels",
-        "routes",
-        "suppliers",
-        "vehicles",
-        "booked_rides",
-        "ride_requests",
-    ]
+    return HealthResponse(status="healthy", counts=_active_counts(conn))
+
+
+def _active_counts(conn: sqlite3.Connection) -> dict[str, int]:
+    """Count active rows in the tables reported at startup and on /api/health."""
     counts: dict[str, int] = {}
     cur = conn.cursor()
-    for tbl in tables:
+    for tbl in _STARTUP_TABLES:
         row = cur.execute(f"SELECT COUNT(*) AS cnt FROM {tbl} WHERE is_active = 1;").fetchone()
         counts[tbl] = row["cnt"] if row else 0
-
-    return HealthResponse(status="healthy", counts=counts)
+    return counts

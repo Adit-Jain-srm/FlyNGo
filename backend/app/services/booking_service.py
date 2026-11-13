@@ -4,12 +4,22 @@ import sqlite3
 from typing import Any
 
 from backend.app.errors import NotFoundException
+from backend.app.log import get_logger
 from backend.app.repositories import booking_repo
 
 
 def book_offer(conn: sqlite3.Connection, offer_id: int) -> dict[str, Any]:
     """Atomically books an open offer and request, sets competitor offers to NOT_CHOSEN."""
-    return booking_repo.create_booking_atomic(conn, offer_id)
+    booking = booking_repo.create_booking_atomic(conn, offer_id)
+    get_logger().info(
+        "booking created number=%s request=%s offer=%s vehicle=%s price=%s",
+        booking["booking_number"],
+        booking["request_id"],
+        booking["offer_id"],
+        booking["vehicle_id"],
+        booking["price_inr"],
+    )
+    return booking
 
 
 def get_booking(conn: sqlite3.Connection, booking_number: str) -> dict[str, Any]:
