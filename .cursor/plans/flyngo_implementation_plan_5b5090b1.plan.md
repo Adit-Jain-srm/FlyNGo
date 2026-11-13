@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: p2-m1-request
     content: "P2 (M1): catalog/quote/car-types/requests (R1-R3); progressive request builder; test_rules.py + test_requests_api.py"
-    status: pending
+    status: completed
   - id: p3-m2-m3-supplier
     content: "P3 (M2, M3): supplier dashboard B.2; car badges; offers R4-R7; no-supplier funnel; supplier UI; eligibility + offers tests"
     status: pending
