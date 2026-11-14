@@ -1,6 +1,5 @@
-"""The hosted SQLite driver still exposes named rows and the full schema."""
-
-import libsql
+import pytest
+libsql = pytest.importorskip("libsql")
 
 from backend.app.db.init import init_db
 from backend.app.db.libsql_conn import NamedConnection
